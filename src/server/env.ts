@@ -8,6 +8,7 @@ import { join, resolve } from "node:path";
  */
 
 let ensured = false;
+const DEFAULT_PORT = "3000";
 
 export function dataDir(): string {
   const raw = process.env.BLATHER_DATA_DIR ?? join(homedir(), ".blather");
@@ -40,8 +41,8 @@ export function dbPath(): string {
 
 /** Base URL used for OAuth callbacks. Always loopback. */
 export function appBaseUrl(): string {
-  const port = process.env.BLATHER_PORT ?? process.env.PORT ?? "3000";
-  return `http://127.0.0.1:${port}`;
+  const port = process.env.BLATHER_PORT ?? process.env.PORT ?? DEFAULT_PORT;
+  return `https://127.0.0.1:${port}`;
 }
 
 export function useMemoryKeychain(): boolean {

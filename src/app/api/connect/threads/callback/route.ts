@@ -1,6 +1,7 @@
 import { popPendingAppConfig, storeOAuthConnection } from "@/server/connect";
 import { requestOrigin, withGuard } from "@/server/http";
 import { completeOAuth } from "@/server/oauth";
+import { oauthResultPage } from "@/server/oauth-result";
 import { fetchJson } from "@/server/providers/errors";
 import type { NextRequest } from "next/server";
 
@@ -70,9 +71,6 @@ export const GET = withGuard(async (req: NextRequest) => {
   }
 });
 
-function done(req: NextRequest, error: string | null): Response {
-  const target = new URL("/settings", requestOrigin(req));
-  target.searchParams.set("connected", "threads");
-  if (error) target.searchParams.set("error", error);
-  return Response.redirect(target, 302);
+function done(_req: NextRequest, error: string | null): Response {
+  return oauthResultPage("Threads", error);
 }

@@ -1,9 +1,9 @@
 # Blather
 
 Compose once, publish to your own accounts on **X**, **Bluesky**, **Threads**, and
-**Instagram** — from a local-only web app. No hosted backend, no telemetry, no third-party
-aggregation API. Your provider credentials live in macOS Keychain; everything else lives in
-a local SQLite database.
+**Instagram** — from a local-only macOS app. No hosted backend, no telemetry, no third-party
+aggregation API. Your provider credentials live in macOS Keychain; everything else lives in a
+local SQLite database.
 
 ## Requirements
 
@@ -11,7 +11,7 @@ a local SQLite database.
 - [Bun](https://bun.sh) 1.3+ (used as the package manager and script runner)
 - Node.js 22+ (Next.js runtime; Bun manages it via your existing install)
 - [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert && mkcert -install`) —
-  used by the dev server to serve trusted HTTPS, which Meta requires for OAuth callbacks
+  used by Blather's local server to serve trusted HTTPS, which Meta requires for OAuth callbacks
 - Your own developer apps/accounts for each network you want to use (see below)
 - A Cloudflare R2 bucket if you want to publish media to Threads or Instagram
 
@@ -19,28 +19,30 @@ a local SQLite database.
 
 ```sh
 bun install
-bun run dev        # serves https://127.0.0.1:3000
+bun run dev
 ```
 
-The dev server uses Next.js `--experimental-https` with an mkcert-generated certificate
-(stored in `certificates/`). If the browser warns about the certificate, run
-`mkcert -install` once and restart.
+This builds and opens the Electron app, which starts a local HTTPS server at
+`https://127.0.0.1:3000`. The Electron window is the supported application UI; do not use the
+local URL directly.
 
-Open https://127.0.0.1:3000. Go to **Settings**, connect the networks you want, configure R2
-staging if you plan to post media to Threads/Instagram, then compose and publish.
+The local certificate is issued by mkcert and stored in `certificates/`. If a system browser
+warns about the certificate during an OAuth connection, run `mkcert -install` once, then restart
+Blather. The callback origin and port are fixed, so port 3000 must be free.
 
-Production mode:
+Go to **Settings**, connect the networks you want, configure R2 staging if you plan to post media
+to Threads/Instagram, then compose and publish. OAuth authorization opens in your system browser;
+return to Blather after the browser displays a completion message.
 
 ```sh
-bun run build
-bun run start      # serves http://127.0.0.1:3000
+bun run build      # creates an unsigned DMG under release/
+bun run build:dir  # creates an unpacked .app for local testing
 ```
 
-Note: `next start` is HTTP-only. Meta (Threads/Instagram) requires an HTTPS callback URL, so
-connect those accounts from the dev server; the resulting tokens work in either mode. X and
-Bluesky connect fine over HTTP.
+The DMG is unsigned and may prompt for confirmation in macOS Gatekeeper. This first version is
+macOS-only because it uses the macOS Keychain `security` CLI.
 
-Both servers bind to `127.0.0.1` only. Non-loopback Host headers and cross-site mutations
+The embedded server binds to `127.0.0.1` only. Non-loopback Host headers and cross-site mutations
 are rejected regardless.
 
 ## Provider developer-app prerequisites
@@ -52,8 +54,7 @@ per network is supported.
 
 1. Create a project + app at https://developer.x.com with **Read and Write** permissions.
 2. Set the app type to a **public client** with **OAuth 2.0** enabled.
-3. Add the callback URL: `https://127.0.0.1:3000/api/connect/x/callback`
-   (if you run on a different port or plain HTTP, register that exact URL instead).
+3. Add the callback URL: `https://127.0.0.1:3000/api/connect/x/callback`.
 4. In Blather Settings, paste the app's **Client ID**.
 
 **X media uploads:** Blather uses X's OAuth 2.0 v2 media-upload endpoints and requests the
@@ -173,9 +174,9 @@ bun run build        # production build
 ```
 
 Tests use fakes selected by env vars (`BLATHER_KEYCHAIN=memory`, `BLATHER_R2=fake`,
-`BLATHER_MOCK_PROVIDERS=1`) so nothing external is contacted. Playwright drives a real
-dev server with mock provider adapters; Instagram's mock always fails so partial-failure
-and retry flows are exercised.
+`BLATHER_MOCK_PROVIDERS=1`) so nothing external is contacted. Playwright launches Electron
+against mock provider adapters; Instagram's mock always fails so partial-failure and retry flows
+are exercised.
 
 **Real-network smoke tests are manual**: they require your developer apps, accounts,
 permissions, and R2 credentials. Connect in Settings, run the health checks, and publish

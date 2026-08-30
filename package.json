@@ -3,16 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "description": "Local-only composer for publishing to X, Bluesky, Threads, and Instagram",
+  "main": "electron-dist/main.js",
   "scripts": {
-    "dev": "NEXT_TELEMETRY_DISABLED=1 next dev -H 127.0.0.1 --experimental-https",
-    "build": "NEXT_TELEMETRY_DISABLED=1 next build",
-    "start": "NEXT_TELEMETRY_DISABLED=1 next start -H 127.0.0.1",
+    "dev": "bun run electron:compile && bun run electron:rebuild && electron .",
+    "build": "bun run node:rebuild && bun run electron:compile && NEXT_TELEMETRY_DISABLED=1 next build && bun run electron:rebuild && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "build:dir": "bun run node:rebuild && bun run electron:compile && NEXT_TELEMETRY_DISABLED=1 next build && bun run electron:rebuild && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:rebuild": "electron-rebuild --force --which-module better-sqlite3",
+    "node:rebuild": "npm rebuild better-sqlite3",
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "bun run node:rebuild && vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "bun run electron:compile && bun run electron:rebuild && playwright test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.844.0",
@@ -39,9 +43,11 @@
     "@types/node": "^24.1.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "electron": "^40.2.1",
+    "electron-builder": "^26.0.12",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   },
-  "trustedDependencies": ["@biomejs/biome"]
+  "trustedDependencies": ["@biomejs/biome", "better-sqlite3", "electron"]
 }

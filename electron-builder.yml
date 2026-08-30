@@ -1,0 +1,22 @@
+appId: com.blather.app
+productName: Blather
+directories:
+  output: release
+files:
+  - electron-dist/**
+  - .next/**
+  - public/**
+  - next.config.ts
+  - package.json
+asar: false
+extraResources:
+  - from: certificates
+    to: certificates
+    filter:
+      - localhost.pem
+      - localhost-key.pem
+mac:
+  target:
+    - dmg
+  category: public.app-category.productivity
+publish: null

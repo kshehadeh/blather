@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // 1x1 transparent PNG
 const PNG = Buffer.from(
@@ -8,7 +8,7 @@ const PNG = Buffer.from(
 
 test.describe("settings", () => {
   test("shows provider capability cards and R2 staging panel", async ({ page }) => {
-    await page.goto("/settings");
+    await page.goto("https://127.0.0.1:3199/settings");
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     for (const name of ["X", "Bluesky", "Threads", "Instagram"]) {
       await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
@@ -25,7 +25,7 @@ test.describe("settings", () => {
   });
 
   test("labels Meta credentials and explains where to find them", async ({ page }) => {
-    await page.goto("/settings");
+    await page.goto("https://127.0.0.1:3199/settings");
     await expect(page.getByLabel("App ID")).toHaveCount(2);
     await expect(page.getByLabel("App Secret")).toHaveCount(2);
 
@@ -44,7 +44,7 @@ test.describe("settings", () => {
 test.describe("composer", () => {
   test("compose, save, reopen, override, publish with a partial failure", async ({ page }) => {
     const unique = `e2e post ${Date.now()}`;
-    await page.goto("/");
+    await page.goto("https://127.0.0.1:3199/");
 
     // Compose base text + media
     await page.getByLabel("Post text").fill(unique);
@@ -92,7 +92,7 @@ test.describe("composer", () => {
   });
 
   test("validation warnings appear before publishing", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("https://127.0.0.1:3199/");
     await page.getByLabel("Post text").fill("x".repeat(281));
     await page.getByText("X", { exact: true }).click();
     await expect(page.getByTestId("preview-x").getByRole("alert")).toContainText("over limit");
@@ -103,7 +103,7 @@ test.describe("history", () => {
   test("shows per-network attempts and retries only failures", async ({ page }) => {
     // Publish something first (instagram fails in mock mode)
     const unique = `history ${Date.now()}`;
-    await page.goto("/");
+    await page.goto("https://127.0.0.1:3199/");
     await page.getByLabel("Post text").fill(unique);
     // Instagram requires media; attach one so the failure comes from the
     // (mocked) provider rather than validation.
@@ -118,7 +118,7 @@ test.describe("history", () => {
     await page.getByRole("button", { name: "Publish now" }).click();
     await expect(page.getByRole("status")).toContainText(/1 succeeded, 1 failed/);
 
-    await page.goto("/history");
+    await page.goto("https://127.0.0.1:3199/history");
     const list = page.getByTestId("history-list");
     await expect(list).toContainText("mock instagram publish failure");
 
@@ -141,5 +141,13 @@ test.describe("history", () => {
     await expect(list).toContainText("mock instagram publish failure");
     expect(await list.locator("li").count()).toBe(rowsBefore);
     expect(await list.locator("li", { hasText: "success" }).count()).toBe(successBefore);
+  });
+});
+
+test.describe("desktop navigation", () => {
+  test("keeps provider authorization outside the application window", async ({ page }) => {
+    await page.goto("https://127.0.0.1:3199/settings");
+    await page.evaluate(() => window.open("https://x.com/i/oauth2/authorize"));
+    await expect(page).toHaveURL(/https:\/\/127\.0\.0\.1:3199\/settings/);
   });
 });

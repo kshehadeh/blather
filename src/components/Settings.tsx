@@ -46,6 +46,7 @@ const networkTitleIcon = {
   threads: SiThreads,
   instagram: SiInstagram,
 } satisfies Record<ProviderCapabilities["network"], IconType>;
+const APP_ORIGIN = "https://127.0.0.1:3000";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -61,6 +62,7 @@ export function Settings() {
   const [data, setData] = useState<ConnectionsResponse | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [pendingOAuth, setPendingOAuth] = useState<ProviderCapabilities["network"] | null>(null);
 
   const refresh = useCallback(async (withHealth = false) => {
     const response = await api<ConnectionsResponse>(
@@ -75,6 +77,28 @@ export function Settings() {
     if (error) setNotice(error);
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!pendingOAuth) return;
+    const interval = window.setInterval(() => void refresh(), 1_000);
+    const timeout = window.setTimeout(() => setPendingOAuth(null), 120_000);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [pendingOAuth, refresh]);
+
+  useEffect(() => {
+    if (!pendingOAuth || !data) return;
+    const connection = data.connections.find((item) => item.network === pendingOAuth);
+    if (!connection || connection.state === "disconnected") return;
+    setPendingOAuth(null);
+    setNotice(
+      connection.state === "connected"
+        ? `${NETWORK_LABELS[pendingOAuth]} connected`
+        : (connection.error ?? `${NETWORK_LABELS[pendingOAuth]} connection failed`),
+    );
+  }, [data, pendingOAuth]);
 
   const checkHealth = async () => {
     setChecking(true);
@@ -150,6 +174,12 @@ export function Settings() {
             conn={connectionFor(capabilities.network)}
             onDisconnect={disconnect}
             onChanged={() => void refresh()}
+            onOAuthStarted={(network) => {
+              setPendingOAuth(network);
+              setNotice(
+                `Finish connecting ${NETWORK_LABELS[network]} in your browser, then return here.`,
+              );
+            }}
           />
         ))}
       </div>
@@ -164,11 +194,13 @@ function NetworkCard({
   conn,
   onDisconnect,
   onChanged,
+  onOAuthStarted,
 }: {
   caps: ProviderCapabilities;
   conn: ConnectionInfo;
   onDisconnect: (network: string) => Promise<void>;
   onChanged: () => void;
+  onOAuthStarted: (network: ProviderCapabilities["network"]) => void;
 }) {
   const NetworkIcon = networkTitleIcon[caps.network];
 
@@ -201,7 +233,11 @@ function NetworkCard({
           ))}
         </ul>
         {conn.state === "disconnected" ? (
-          <ConnectForm network={caps.network} onChanged={onChanged} />
+          <ConnectForm
+            network={caps.network}
+            onChanged={onChanged}
+            onOAuthStarted={onOAuthStarted}
+          />
         ) : (
           <Button
             type="button"
@@ -227,9 +263,11 @@ function StatusBadge({ state }: { state: ConnectionInfo["state"] }) {
 function ConnectForm({
   network,
   onChanged,
+  onOAuthStarted,
 }: {
   network: ProviderCapabilities["network"];
   onChanged: () => void;
+  onOAuthStarted: (network: ProviderCapabilities["network"]) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -244,6 +282,7 @@ function ConnectForm({
         body: JSON.stringify(fields),
       });
       if (response.url) {
+        onOAuthStarted(network);
         window.location.href = response.url;
         return;
       }
@@ -331,7 +370,7 @@ function ConnectForm({
 
 function MetaCredentialsHelp({ network }: { network: "threads" | "instagram" }) {
   const networkName = NETWORK_LABELS[network];
-  const callbackUrl = `https://127.0.0.1:3000/api/connect/${network}/callback`;
+  const callbackUrl = `${APP_ORIGIN}/api/connect/${network}/callback`;
 
   return (
     <Dialog>
