@@ -6,6 +6,21 @@ const PNG = Buffer.from(
   "base64",
 );
 
+test.describe("dashboard", () => {
+  test("shows fixed sidebar navigation and empty summaries", async ({ page }) => {
+    await page.goto("https://127.0.0.1:3199/");
+    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Main navigation" })).toContainText(
+      "Dashboard",
+    );
+    for (const name of ["Compose", "History", "Settings"]) {
+      await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+    }
+    await expect(page.getByText("Nothing published yet")).toBeVisible();
+    await expect(page.getByText("No connections")).toBeVisible();
+  });
+});
+
 test.describe("settings", () => {
   test("shows provider capability cards and R2 staging panel", async ({ page }) => {
     await page.goto("https://127.0.0.1:3199/settings");
@@ -44,7 +59,7 @@ test.describe("settings", () => {
 test.describe("composer", () => {
   test("compose, save, reopen, override, publish with a partial failure", async ({ page }) => {
     const unique = `e2e post ${Date.now()}`;
-    await page.goto("https://127.0.0.1:3199/");
+    await page.goto("https://127.0.0.1:3199/compose");
 
     // Compose base text + media
     await page.getByLabel("Post text").fill(unique);
@@ -92,7 +107,7 @@ test.describe("composer", () => {
   });
 
   test("validation warnings appear before publishing", async ({ page }) => {
-    await page.goto("https://127.0.0.1:3199/");
+    await page.goto("https://127.0.0.1:3199/compose");
     await page.getByLabel("Post text").fill("x".repeat(281));
     await page.getByText("X", { exact: true }).click();
     await expect(page.getByTestId("preview-x").getByRole("alert")).toContainText("over limit");
@@ -103,7 +118,7 @@ test.describe("history", () => {
   test("shows per-network attempts and retries only failures", async ({ page }) => {
     // Publish something first (instagram fails in mock mode)
     const unique = `history ${Date.now()}`;
-    await page.goto("https://127.0.0.1:3199/");
+    await page.goto("https://127.0.0.1:3199/compose");
     await page.getByLabel("Post text").fill(unique);
     // Instagram requires media; attach one so the failure comes from the
     // (mocked) provider rather than validation.

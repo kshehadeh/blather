@@ -60,8 +60,17 @@ export interface PublishAttempt {
   providerPostUrl?: string;
   /** Sanitized, redacted error message safe to display. */
   error?: string;
+  /** Resolved post text captured at publish time. */
+  textSnapshot: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RecentPost {
+  draftId: string;
+  text: string;
+  createdAt: string;
+  attempts: PublishAttempt[];
 }
 
 export type ConnectionState = "disconnected" | "connected" | "error";

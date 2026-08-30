@@ -113,6 +113,7 @@ function attemptFromRow(r: AttemptRow): PublishAttempt {
     providerPostId: r.provider_post_id ?? undefined,
     providerPostUrl: r.provider_post_url ?? undefined,
     error: r.error ?? undefined,
+    textSnapshot: r.text_snapshot,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
