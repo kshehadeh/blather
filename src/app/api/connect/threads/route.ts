@@ -1,0 +1,30 @@
+import { stashPendingAppConfig } from "@/server/connect";
+import { oauthStatesRepo } from "@/server/db/repositories";
+import { requestOrigin, withGuard } from "@/server/http";
+import type { NextRequest } from "next/server";
+
+export const runtime = "nodejs";
+
+/**
+ * Start Threads OAuth with the user's own Meta app (Threads API use case).
+ */
+export const POST = withGuard(async (req: NextRequest) => {
+  const body = (await req.json()) as { clientId?: string; clientSecret?: string };
+  if (!body.clientId || !body.clientSecret) {
+    return Response.json({ error: "clientId and clientSecret required" }, { status: 400 });
+  }
+
+  const state = crypto.randomUUID();
+  oauthStatesRepo().create("threads", state, "pkce-not-used");
+  stashPendingAppConfig(state, { clientId: body.clientId, clientSecret: body.clientSecret });
+
+  const redirectUri = `${requestOrigin(req)}/api/connect/threads/callback`;
+  const url = new URL("https://threads.net/oauth/authorize");
+  url.searchParams.set("client_id", body.clientId);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("scope", "threads_basic,threads_content_publish");
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("state", state);
+
+  return Response.json({ url: url.toString() });
+});
