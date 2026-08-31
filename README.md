@@ -45,86 +45,21 @@ macOS-only because it uses the macOS Keychain `security` CLI.
 The embedded server binds to `127.0.0.1` only. Non-loopback Host headers and cross-site mutations
 are rejected regardless.
 
-## Provider developer-app prerequisites
+## Social network setup
 
-Blather talks to each provider's native API using **your own** developer app. One account
-per network is supported.
+Blather talks directly to each provider's native API. One account per network is supported, and
+you only need to configure the networks you use.
 
-### X (Twitter)
+Begin with the [social network setup overview](docs/README.md), then follow the separate guide for
+each network:
 
-1. Create a project + app at https://developer.x.com with **Read and Write** permissions.
-2. Set the app type to a **public client** with **OAuth 2.0** enabled.
-3. Add the callback URL: `https://127.0.0.1:3000/api/connect/x/callback`.
-4. In Blather Settings, paste the app's **Client ID**.
+- [X](docs/x.md)
+- [Bluesky](docs/bluesky.md)
+- [Threads](docs/threads.md)
+- [Instagram](docs/instagram.md)
 
-**X media uploads:** Blather uses X's OAuth 2.0 v2 media-upload endpoints and requests the
-`media.write` scope when connecting. If a media upload is denied, disconnect and reconnect X
-to grant that scope. Tokens refresh automatically via the `offline.access` scope.
-
-### Bluesky
-
-1. Use your handle (e.g. `you.bsky.social`) and an **app password**
-   (Settings → Privacy and security → App passwords). Do not use your main password.
-2. If your account is on a non-default PDS, enter its URL; otherwise leave the default
-   `https://bsky.social`.
-
-Bluesky limits each post image to 1 MB. When a non-GIF image is larger, Blather creates a
-temporary, smaller JPEG for that Bluesky upload and then deletes it, leaving the original
-file unchanged. Bluesky sessions are refreshed automatically. Video uploads go through
-Bluesky's asynchronous video service and are polled until processing completes.
-
-### Threads
-
-1. Create a Meta developer app at https://developers.facebook.com with the **Threads API**
-   use case.
-2. Under the Threads API settings add the callback URL:
-   `https://127.0.0.1:3000/api/connect/threads/callback`
-3. In Blather Settings, paste the app's **App ID** and **App Secret**. Find both in
-   Meta for Developers: **My Apps** → select your app → **App settings** → **Basic**.
-
-Short-lived tokens are exchanged for 60-day tokens, which are refreshed server-side
-before they expire.
-
-### Instagram
-
-1. Your Instagram account must be a **professional account** (Business or Creator).
-   Personal accounts cannot publish via the API — the Settings status card reports this.
-2. Create a Meta developer app with **Instagram API with Instagram Login**
-   (`instagram_business_basic` + `instagram_business_content_publish` scopes).
-3. Add the callback URL: `https://127.0.0.1:3000/api/connect/instagram/callback`
-4. In Blather Settings, paste the app's **App ID** and **App Secret**. Find both in
-   Meta for Developers: **My Apps** → select your app → **App settings** → **Basic**.
-
-### Cloudflare R2 staging (required for Threads/Instagram media)
-
-Meta fetches media from a public HTTPS URL, so Blather stages media temporarily into an
-Cloudflare R2 bucket you own, then deletes the objects after publishing. Anything left
-behind (crash, interruption) is swept at startup after a 24-hour window.
-
-Settings fields:
-
-- **Account ID / Bucket** — your Cloudflare account ID and R2 bucket name. Blather derives the
-  R2 S3-compatible API endpoint and uses path-style addressing.
-- **Public URL strategy**:
-  - `Presigned URLs` (default): the bucket can stay fully private. Presigned GET URLs
-    valid for 1 hour are handed to Meta.
-  - `Public R2 bucket URL`: objects are world-readable through a custom domain or R2.dev URL.
-    Provide its full base URL (for example, `https://media.example.com`). Your R2 public
-    bucket policy and CORS configuration should allow GET from any origin, e.g.:
-
-    ```json
-    [
-      {
-        "AllowedOrigins": ["*"],
-        "AllowedMethods": ["GET"],
-        "AllowedHeaders": ["*"],
-        "MaxAgeSeconds": 3000
-      }
-    ]
-    ```
-- **Access credentials** — stored in Keychain, never in SQLite or on disk in plaintext.
-
-The R2 API token needs Object Read & Write permission for the selected bucket.
+Media posts to Threads and Instagram also require the
+[Cloudflare R2 staging setup](docs/cloudflare-r2.md).
 
 ## Data locations
 
@@ -193,12 +128,12 @@ src/
     credentials.ts  opaque refs <-> Keychain blobs
     providers/    adapter contract + x / bluesky / threads / instagram / mock
     publish/      orchestrator (bounded concurrency), override resolution, recovery
-    s3.ts         staging, presigned/public URLs, orphan cleanup
+    r2.ts         staging, presigned/public URLs, orphan cleanup
     security.ts   loopback + same-origin guards, redaction
     oauth.ts      PKCE + single-use state
   app/            App Router pages (composer, history, settings) + API routes
 tests/
   unit/           validation, overrides, credentials, errors, adapters (mocked HTTP)
-  integration/    SQLite repos, OAuth state/PKCE, partial success + retry, S3 cleanup
+  integration/    SQLite repos, OAuth state/PKCE, partial success + retry, R2 cleanup
   e2e/            Playwright flows against mock providers
 ```
