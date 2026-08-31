@@ -1,5 +1,6 @@
 appId: com.blather.app
 productName: Blather
+icon: assets/blather-desktop-icon.icns
 directories:
   output: release
 files:
@@ -8,6 +9,7 @@ files:
   - public/**
   - next.config.ts
   - package.json
+  - assets/blather-desktop-icon.png
 asar: false
 extraResources:
   - from: certificates

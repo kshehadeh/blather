@@ -13,6 +13,9 @@ test.describe("dashboard", () => {
     await expect(page.getByRole("navigation", { name: "Main navigation" })).toContainText(
       "Dashboard",
     );
+    await expect(
+      page.getByRole("link", { name: "Blather", exact: true }).locator("img"),
+    ).toHaveAttribute("src", "/icon.svg");
     for (const name of ["Compose", "History", "Settings"]) {
       await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
     }

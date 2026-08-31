@@ -19,7 +19,7 @@ export function AppSidebar() {
     <aside className="flex w-56 shrink-0 flex-col border-r bg-card" aria-label="Application">
       <header className="flex min-h-16 items-center border-b px-5">
         <Link href="/" className="flex items-center gap-2 text-sm font-medium tracking-tight">
-          <span className="size-2 rounded-full bg-foreground" aria-hidden />
+          <img src="/icon.svg" alt="" className="size-6 invert" />
           Blather
         </Link>
       </header>

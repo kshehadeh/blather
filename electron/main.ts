@@ -32,6 +32,11 @@ function certificateDir(): string {
     : join(projectDir(), "certificates");
 }
 
+function setMacAppIcon(): void {
+  if (process.platform !== "darwin") return;
+  app.dock?.setIcon(join(projectDir(), "assets", "blather-desktop-icon.png"));
+}
+
 async function startServer(): Promise<void> {
   process.env.BLATHER_PORT = String(PORT);
   process.env.NEXT_TELEMETRY_DISABLED = "1";
@@ -104,6 +109,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 700,
     show: false,
+    icon: join(projectDir(), "assets", "blather-desktop-icon.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -142,6 +148,13 @@ async function bootstrap(): Promise<void> {
   }
 }
 
+function launch(): void {
+  void app.whenReady().then(() => {
+    setMacAppIcon();
+    return bootstrap();
+  });
+}
+
 app.on("second-instance", () => {
   if (!mainWindow) {
     createWindow();
@@ -159,9 +172,9 @@ app.on("before-quit", (event) => {
 });
 
 if (process.env.BLATHER_E2E === "1") {
-  void app.whenReady().then(bootstrap);
+  launch();
 } else if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  void app.whenReady().then(bootstrap);
+  launch();
 }
