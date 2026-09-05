@@ -92,7 +92,13 @@ export const instagramAdapter: ProviderAdapter = {
       const me = res.body as { user_id?: string; username?: string; account_type?: string };
       const meta: Record<string, string> = {};
       if (me.account_type) meta.accountType = me.account_type;
-      if (me.account_type && me.account_type !== "BUSINESS" && me.account_type !== "CREATOR") {
+      const normalizedType = me.account_type?.toUpperCase();
+      const isProfessional =
+        !normalizedType ||
+        normalizedType === "BUSINESS" ||
+        normalizedType === "CREATOR" ||
+        normalizedType === "MEDIA_CREATOR";
+      if (!isProfessional) {
         return {
           ok: false,
           accountLabel: me.username ? `@${me.username}` : undefined,

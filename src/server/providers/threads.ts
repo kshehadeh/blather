@@ -156,12 +156,12 @@ export async function waitForContainer(containerId: string, accessToken: string)
     }
     const res = await fetchJson(
       NETWORK,
-      `${GRAPH}/${containerId}?fields=status_code,status&access_token=${encodeURIComponent(accessToken)}`,
+      `${GRAPH}/${containerId}?fields=status&access_token=${encodeURIComponent(accessToken)}`,
       {},
     );
-    const body = res.body as { status_code?: string; status?: string };
-    if (body.status_code === "FINISHED") return;
-    if (body.status_code === "ERROR" || body.status_code === "EXPIRED") {
+    const body = res.body as { status?: string };
+    if (body.status === "FINISHED") return;
+    if (body.status === "ERROR" || body.status === "EXPIRED") {
       throw new ProviderError(
         NETWORK,
         `threads: media container failed (${body.status ?? "ERROR"})`,
