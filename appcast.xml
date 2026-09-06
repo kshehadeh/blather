@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Blather</title>
+    <description>Most recent changes for Blather.</description>
+    <language>en</language>
+      <item>
+      <title>Version 0.1.0 (Build 1)</title>
+      <pubDate>Sun, 06 Sep 2026 09:18:04 +0000</pubDate>
+      <sparkle:version>1</sparkle:version>
+      <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <ul>
+          <li>Native macOS app</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/kshehadeh/blather/releases/download/v0.1.0/Blather.dmg"
+                 type="application/octet-stream"
+                 sparkle:edSignature="ysrkFE7vQavVzYOX45lCIuHeBC116SAyyz3xJju0O/lv3s7zW94WygP1T8ChrXq2KVXiNfuIl37ZO0zkqabtDA=="
+                 length="4235547" />
+    </item>
+  </channel>
+</rss>
