@@ -286,21 +286,27 @@ final class AppModel {
         strategy: String,
         publicBaseUrl: String,
         accessKeyId: String,
-        secretAccessKey: String
+        secretAccessKey: String,
+        jurisdiction: String = ""
     ) {
         do {
+            let parsed = R2Endpoint.parse(accountId: accountId, jurisdiction: jurisdiction)
+            let trimmedKey = accessKeyId.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedSecret = secretAccessKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedPublic = publicBaseUrl.trimmingCharacters(in: .whitespacesAndNewlines)
             var settings = StoredR2Settings(
-                accountId: accountId,
-                bucket: bucket,
+                accountId: parsed.accountId,
+                bucket: R2Endpoint.normalizeBucket(bucket),
                 publicUrlStrategy: strategy,
-                publicBaseUrl: publicBaseUrl.isEmpty ? nil : publicBaseUrl,
-                credentialRef: nil
+                publicBaseUrl: trimmedPublic.isEmpty ? nil : trimmedPublic,
+                credentialRef: nil,
+                jurisdiction: parsed.jurisdiction
             )
-            if !accessKeyId.isEmpty, !secretAccessKey.isEmpty {
+            if !trimmedKey.isEmpty, !trimmedSecret.isEmpty {
                 let existing = try database.r2.get()
                 Credentials.delete(ref: existing?.credentialRef)
                 let ref = Credentials.makeRef(kind: "r2", owner: "r2")
-                try Credentials.store(ref, value: R2Credentials(accessKeyId: accessKeyId, secretAccessKey: secretAccessKey))
+                try Credentials.store(ref, value: R2Credentials(accessKeyId: trimmedKey, secretAccessKey: trimmedSecret))
                 settings.credentialRef = ref
             }
             try database.r2.save(settings)

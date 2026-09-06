@@ -385,6 +385,7 @@ struct StoredR2Settings: Hashable, Sendable {
     var publicUrlStrategy: String
     var publicBaseUrl: String?
     var credentialRef: String?
+    var jurisdiction: String? = nil
 }
 
 struct R2SettingsRepository: Sendable {
@@ -398,7 +399,8 @@ struct R2SettingsRepository: Sendable {
                 bucket: row["bucket"],
                 publicUrlStrategy: row["public_url_strategy"],
                 publicBaseUrl: row["public_base_url"],
-                credentialRef: row["credential_ref"]
+                credentialRef: row["credential_ref"],
+                jurisdiction: row["jurisdiction"]
             )
         }
     }
@@ -416,7 +418,8 @@ struct R2SettingsRepository: Sendable {
             bucket: r2.bucket,
             publicUrlStrategy: r2.publicUrlStrategy,
             publicBaseUrl: r2.publicBaseUrl,
-            hasCredentials: r2.credentialRef != nil
+            hasCredentials: r2.credentialRef != nil,
+            jurisdiction: r2.jurisdiction
         )
     }
 
@@ -424,14 +427,15 @@ struct R2SettingsRepository: Sendable {
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO r2_settings (id, account_id, bucket, public_url_strategy, public_base_url, credential_ref, updated_at)
-                VALUES (1, ?, ?, ?, ?, ?, ?)
+                INSERT INTO r2_settings (id, account_id, bucket, public_url_strategy, public_base_url, credential_ref, jurisdiction, updated_at)
+                VALUES (1, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                   account_id = excluded.account_id,
                   bucket = excluded.bucket,
                   public_url_strategy = excluded.public_url_strategy,
                   public_base_url = excluded.public_base_url,
                   credential_ref = COALESCE(excluded.credential_ref, r2_settings.credential_ref),
+                  jurisdiction = excluded.jurisdiction,
                   updated_at = excluded.updated_at
                 """,
                 arguments: [
@@ -440,6 +444,7 @@ struct R2SettingsRepository: Sendable {
                     input.publicUrlStrategy,
                     input.publicBaseUrl,
                     input.credentialRef,
+                    input.jurisdiction,
                     Time.now(),
                 ]
             )

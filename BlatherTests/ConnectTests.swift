@@ -218,4 +218,104 @@ struct ConnectTests {
         #expect(staged.url.contains("fake-r2.local"))
         #expect(staged.key.contains(media.id))
     }
+
+    @Test func r2EndpointParsesAccountIdAndJurisdiction() {
+        #expect(R2Endpoint.parse(accountId: "  abcdef1234  ").accountId == "abcdef1234")
+        #expect(R2Endpoint.parse(accountId: "abcdef1234").jurisdiction == nil)
+
+        let fromURL = R2Endpoint.parse(accountId: "https://abcdef1234.r2.cloudflarestorage.com/")
+        #expect(fromURL.accountId == "abcdef1234")
+        #expect(fromURL.jurisdiction == nil)
+
+        let eu = R2Endpoint.parse(accountId: "https://abcdef1234.eu.r2.cloudflarestorage.com")
+        #expect(eu.accountId == "abcdef1234")
+        #expect(eu.jurisdiction == "eu")
+
+        let selected = R2Endpoint.parse(accountId: "abcdef1234", jurisdiction: "US")
+        #expect(selected.jurisdiction == "us")
+        #expect(R2Endpoint.host(accountId: "abcdef1234", jurisdiction: "eu") == "abcdef1234.eu.r2.cloudflarestorage.com")
+    }
+
+    @Test func r2APIErrorSurfacesXMLCode() {
+        let xml = Data("<Error><Code>AuthorizationHeaderMalformed</Code><Message>Wrong region</Message></Error>".utf8)
+        let message = R2APIError.message(status: 400, body: xml, operation: "connection")
+        #expect(message.contains("R2 S3 credentials"))
+        #expect(message.contains("jurisdiction"))
+    }
+
+    @Test func sigV4MatchesAWSHeaderExample() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = calendar.date(from: DateComponents(year: 2013, month: 5, day: 24))!
+        let headers = SigV4.signedHeaders(
+            method: "GET",
+            url: URL(string: "https://examplebucket.s3.amazonaws.com/test.txt")!,
+            region: "us-east-1",
+            service: "s3",
+            accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+            secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            extraHeaders: ["range": "bytes=0-9"],
+            body: Data(),
+            now: now
+        )
+        #expect(headers["authorization"] == nil)
+        #expect(
+            headers["Authorization"]
+                == "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41"
+        )
+    }
+
+    @Test func r2TestConnectionUploadsProbeAndReportsXMLError() async throws {
+        let db = try AppDatabase.inMemory()
+        let stager = CloudflareR2Stager(
+            database: db,
+            settings: StoredR2Settings(
+                accountId: "acct",
+                bucket: "media",
+                publicUrlStrategy: "presigned",
+                publicBaseUrl: nil,
+                credentialRef: "ref",
+                jurisdiction: "eu"
+            ),
+            credentials: R2Credentials(accessKeyId: "AKID", secretAccessKey: "secret")
+        )
+        let xml = Data("<Error><Code>NoSuchBucket</Code><Message>The specified bucket does not exist.</Message></Error>".utf8)
+        let client = MockHTTPClient([.raw(xml, status: 400)])
+        let previous = ProviderHTTP.client
+        ProviderHTTP.client = client
+        defer { ProviderHTTP.client = previous }
+
+        do {
+            try await stager.testConnection()
+            Issue.record("expected R2 connection failure")
+        } catch let error as R2Error {
+            #expect(error.localizedDescription.contains("jurisdiction"))
+        }
+
+        #expect(client.requests.count == 1)
+        #expect(client.requests.first?.httpMethod == "PUT")
+        #expect(client.requests.first?.url?.host == "acct.eu.r2.cloudflarestorage.com")
+        #expect(client.requests.first?.url?.path.contains("blather-staging/.connection-test") == true)
+    }
+
+    @Test func r2TestConnectionSucceedsOnPutAndDelete() async throws {
+        let db = try AppDatabase.inMemory()
+        let stager = CloudflareR2Stager(
+            database: db,
+            settings: StoredR2Settings(
+                accountId: "acct",
+                bucket: "media",
+                publicUrlStrategy: "presigned",
+                publicBaseUrl: nil,
+                credentialRef: "ref"
+            ),
+            credentials: R2Credentials(accessKeyId: "AKID", secretAccessKey: "secret")
+        )
+        let client = MockHTTPClient([.empty(200), .empty(204)])
+        let previous = ProviderHTTP.client
+        ProviderHTTP.client = client
+        defer { ProviderHTTP.client = previous }
+        try await stager.testConnection()
+        #expect(client.requests.map(\.httpMethod) == ["PUT", "DELETE"])
+    }
 }

@@ -65,6 +65,7 @@ enum Schema {
       public_url_strategy TEXT NOT NULL CHECK (public_url_strategy IN ('public','presigned')),
       public_base_url TEXT,
       credential_ref TEXT,
+      jurisdiction TEXT,
       updated_at TEXT NOT NULL
     );
 

@@ -116,6 +116,7 @@ struct R2SettingsView: Hashable, Sendable {
     var publicUrlStrategy: String?
     var publicBaseUrl: String?
     var hasCredentials: Bool
+    var jurisdiction: String? = nil
 }
 
 struct ResolvedContent: Hashable, Sendable {

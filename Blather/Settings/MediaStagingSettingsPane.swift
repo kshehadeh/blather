@@ -8,6 +8,7 @@ struct MediaStagingSettingsPane: View {
     @State private var publicBaseUrl = ""
     @State private var accessKeyId = ""
     @State private var secretAccessKey = ""
+    @State private var jurisdiction = ""
 
     var body: some View {
         let r2 = appModel.r2
@@ -21,6 +22,16 @@ struct MediaStagingSettingsPane: View {
                 LabeledContent("Status", value: r2.configured ? "Configured" : "Not configured")
                 TextField("Account ID", text: $accountId)
                 TextField("Bucket", text: $bucket)
+                Picker("Jurisdiction", selection: $jurisdiction) {
+                    Text("Automatic (default)").tag("")
+                    Text("European Union (eu)").tag("eu")
+                    Text("United States (us)").tag("us")
+                    Text("FedRAMP").tag("fedramp")
+                }
+                .pickerStyle(.menu)
+                Text("Only change this if you chose Specify jurisdiction when creating the bucket. A location hint is not a jurisdiction.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("Media URL strategy", selection: $strategy) {
                     Text("Presigned URLs, bucket stays private").tag("presigned")
                     Text("Public R2 bucket URL").tag("public")
@@ -41,8 +52,15 @@ struct MediaStagingSettingsPane: View {
                             strategy: strategy,
                             publicBaseUrl: publicBaseUrl,
                             accessKeyId: accessKeyId,
-                            secretAccessKey: secretAccessKey
+                            secretAccessKey: secretAccessKey,
+                            jurisdiction: jurisdiction
                         )
+                        let saved = appModel.r2
+                        accountId = saved.accountId ?? accountId
+                        bucket = saved.bucket ?? bucket
+                        jurisdiction = saved.jurisdiction ?? ""
+                        accessKeyId = ""
+                        secretAccessKey = ""
                     }
                     .disabled(accountId.isEmpty || bucket.isEmpty || appModel.isBusy)
                     Button("Test connection") {
@@ -56,6 +74,7 @@ struct MediaStagingSettingsPane: View {
                         publicBaseUrl = ""
                         accessKeyId = ""
                         secretAccessKey = ""
+                        jurisdiction = ""
                     }
                     .disabled(!r2.configured || appModel.isBusy)
                 }
@@ -78,6 +97,7 @@ struct MediaStagingSettingsPane: View {
             bucket = r2.bucket ?? bucket
             strategy = r2.publicUrlStrategy ?? strategy
             publicBaseUrl = r2.publicBaseUrl ?? publicBaseUrl
+            jurisdiction = r2.jurisdiction ?? jurisdiction
         }
     }
 }

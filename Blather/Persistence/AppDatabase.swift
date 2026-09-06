@@ -37,6 +37,7 @@ final class AppDatabase: Sendable {
     func migrate() throws {
         try dbQueue.write { db in
             try db.execute(sql: Schema.sql)
+            try migrateR2Jurisdiction(db)
             try migrateLegacyS3Settings(db)
         }
     }
@@ -72,30 +73,29 @@ final class AppDatabase: Sendable {
             """)
         else { return }
 
-        let accountId = accountIdFromR2Endpoint(row.endpoint)
+        let parsed = R2Endpoint.parse(accountId: row.endpoint)
         try db.execute(
             sql: """
             INSERT OR IGNORE INTO r2_settings
-              (id, account_id, bucket, public_url_strategy, public_base_url, credential_ref, updated_at)
-            VALUES (1, ?, ?, ?, ?, ?, ?)
+              (id, account_id, bucket, public_url_strategy, public_base_url, credential_ref, jurisdiction, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?)
             """,
             arguments: [
-                accountId,
+                parsed.accountId,
                 row.bucket,
                 row.publicUrlStrategy,
                 row.publicBaseUrl,
                 row.credentialRef,
+                parsed.jurisdiction,
                 row.updatedAt,
             ]
         )
     }
 
-    private func accountIdFromR2Endpoint(_ endpoint: String) -> String {
-        let pattern = #"^https?://([^.]+)\.r2\.cloudflarestorage\.com/?$"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: endpoint, range: NSRange(endpoint.startIndex..., in: endpoint)),
-              let range = Range(match.range(at: 1), in: endpoint)
-        else { return "" }
-        return String(endpoint[range])
+    private func migrateR2Jurisdiction(_ db: Database) throws {
+        let names = try String.fetchAll(db, sql: "SELECT name FROM pragma_table_info('r2_settings')")
+        if !names.contains("jurisdiction") {
+            try db.execute(sql: "ALTER TABLE r2_settings ADD COLUMN jurisdiction TEXT")
+        }
     }
 }

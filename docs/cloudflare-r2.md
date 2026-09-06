@@ -53,9 +53,10 @@ general Cloudflare API token copied from the main API Tokens page.
 7. Copy both **Access Key ID** and **Secret Access Key** immediately. Cloudflare may show the secret
    only once.
 
-The test performed by Blather also checks that the bucket is reachable. If a narrowly customized
-policy denies the bucket check, use Cloudflare's standard R2 Object Read & Write permission for
-that bucket.
+The test performed by Blather uploads a tiny probe object and deletes it. The R2 token therefore
+needs Object Read & Write, not Object Read only. If a narrowly customized policy denies PutObject
+on `blather-staging/`, use Cloudflare's standard R2 Object Read & Write permission for that
+bucket.
 
 Do not paste Cloudflare's token string, Account API Token, S3 endpoint, or jurisdiction-specific
 endpoint into either key field.
@@ -88,23 +89,28 @@ API operations and is not a public bucket website.
 
 1. Open **Blather > Settings…** (Cmd+,).
 2. Open the **Media Staging** tab.
-3. Enter the Cloudflare **Account ID**.
+3. Enter the Cloudflare **Account ID**. You can paste the S3 API endpoint instead; Blather extracts
+   the account ID and jurisdiction from it.
 4. Enter the exact **Bucket** name.
-5. Choose **Presigned URLs, bucket stays private** unless you intentionally configured a public
+5. Leave **Jurisdiction** on **Automatic (default)** unless you chose **Specify jurisdiction** when
+   creating the bucket. A location hint (for example Western Europe) is not a jurisdiction. EU, US,
+   and FedRAMP jurisdiction buckets must use that setting or they return HTTP 400.
+6. Choose **Presigned URLs, bucket stays private** unless you intentionally configured a public
    URL.
-6. For the presigned strategy, leave **Public R2 bucket URL** blank.
-7. For the public strategy, enter the complete HTTPS public base URL.
-8. Enter the R2 **Access Key ID** and **Secret Access Key**.
-9. Select **Save**.
-10. Select **Test connection** and confirm that Blather shows **Connection OK**.
+7. For the presigned strategy, leave **Public R2 bucket URL** blank.
+8. For the public strategy, enter the complete HTTPS public base URL.
+9. Enter the R2 **Access Key ID** and **Secret Access Key**.
+10. Select **Save**.
+11. Select **Test connection** and confirm that Blather shows **Connection OK**.
 
 The keys are stored in macOS Keychain. When editing an existing configuration, leave both key
 fields blank to keep the saved credentials.
 
 ## 6. Test the complete media path
 
-**Test connection** checks Blather's access to the bucket, but it does not ask Meta to fetch a
-file. Complete one end-to-end test:
+**Test connection** uploads a tiny probe object and deletes it. That confirms R2 credentials can
+write, which is what publishing needs. It does not ask Meta to fetch a file. Complete one
+end-to-end test:
 
 1. Attach one ordinary JPEG to a low-stakes Threads or Instagram post.
 2. Publish only to that network.
@@ -116,6 +122,19 @@ permanent copy of published media.
 
 ## Troubleshooting
 
+### Test connection says HTTP 400 or rejects the signed request
+
+Blather talks to R2 over the S3-compatible API. HTTP 400 means R2 rejected the request as
+malformed, not merely unauthorized.
+
+- Confirm you pasted the R2 **Access Key ID** and **Secret Access Key** from **Manage R2 API
+  Tokens**, not a token from Cloudflare's main API Tokens page.
+- Trim pasted values; leading or trailing whitespace in the keys or Account ID produces 400.
+- If the bucket was created with **Specify jurisdiction**, set that same jurisdiction in Blather
+  (or paste `https://ACCOUNT_ID.eu.r2.cloudflarestorage.com` into Account ID). Location hints do
+  not need this.
+- Use the exact bucket name, not the S3 endpoint URL, in the Bucket field.
+
 ### Test connection says access is denied
 
 Confirm that the Access Key ID and Secret Access Key belong to the same R2 token, the token has
@@ -124,8 +143,9 @@ was lost, create new credentials; Cloudflare does not reveal it again.
 
 ### Test connection says the bucket does not exist
 
-Check the Account ID and bucket spelling. Credentials from one Cloudflare account cannot access a
-bucket in another account, even if the bucket names are the same.
+Check the Account ID, bucket spelling, and jurisdiction. Credentials from one Cloudflare account
+cannot access a bucket in another account, even if the bucket names are the same. Jurisdiction
+buckets are only reachable on their jurisdiction endpoint.
 
 ### Test connection works but Meta cannot fetch media
 

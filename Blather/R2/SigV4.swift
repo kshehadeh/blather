@@ -16,13 +16,17 @@ enum SigV4 {
         let amzDate = dateStamp(now, format: "yyyyMMdd'T'HHmmss'Z'")
         let shortDate = dateStamp(now, format: "yyyyMMdd")
         let payloadHash = sha256Hex(body ?? Data())
-        var headers = extraHeaders
+        var headers: [String: String] = [:]
+        for (key, value) in extraHeaders {
+            headers[key.lowercased()] = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         headers["host"] = url.host ?? ""
         headers["x-amz-date"] = amzDate
         headers["x-amz-content-sha256"] = payloadHash
 
-        let signedHeaderNames = headers.keys.sorted().map { $0.lowercased() }.joined(separator: ";")
-        let canonicalHeaders = headers.keys.sorted().map { "\($0.lowercased()):\(headers[$0]!.trimmingCharacters(in: .whitespaces))\n" }.joined()
+        let signedNames = headers.keys.sorted()
+        let signedHeaderNames = signedNames.joined(separator: ";")
+        let canonicalHeaders = signedNames.map { "\($0):\(headers[$0]!)\n" }.joined()
         let canonicalRequest = [
             method,
             canonicalURI(url),

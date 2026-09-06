@@ -239,6 +239,7 @@ final class MockHTTPClient: HTTPClient, @unchecked Sendable {
         var status: Int
         var json: Any?
         var error: Error?
+        var rawBody: Data? = nil
 
         static func json(_ value: Any, status: Int = 200) -> Exchange {
             Exchange(status: status, json: value, error: nil)
@@ -246,6 +247,14 @@ final class MockHTTPClient: HTTPClient, @unchecked Sendable {
 
         static func status(_ code: Int) -> Exchange {
             Exchange(status: code, json: ["error": ["message": "http \(code)"]], error: nil)
+        }
+
+        static func empty(_ status: Int = 200) -> Exchange {
+            Exchange(status: status, json: nil, error: nil, rawBody: Data())
+        }
+
+        static func raw(_ body: Data, status: Int) -> Exchange {
+            Exchange(status: status, json: nil, error: nil, rawBody: body)
         }
     }
 
@@ -270,7 +279,9 @@ final class MockHTTPClient: HTTPClient, @unchecked Sendable {
         }
         if let error = exchange.error { throw error }
         let data: Data
-        if let json = exchange.json {
+        if let rawBody = exchange.rawBody {
+            data = rawBody
+        } else if let json = exchange.json {
             data = try JSONSerialization.data(withJSONObject: json)
         } else {
             data = Data()

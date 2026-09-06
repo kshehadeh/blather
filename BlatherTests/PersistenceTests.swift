@@ -70,6 +70,20 @@ struct PersistenceTests {
         #expect(try db.r2.view().hasCredentials)
     }
 
+    @Test func r2JurisdictionRoundTrip() throws {
+        let db = try database()
+        try db.r2.save(StoredR2Settings(
+            accountId: "acct",
+            bucket: "media",
+            publicUrlStrategy: "presigned",
+            publicBaseUrl: nil,
+            credentialRef: "r2.acct.1",
+            jurisdiction: "eu"
+        ))
+        #expect(try db.r2.get()?.jurisdiction == "eu")
+        #expect(try db.r2.view().jurisdiction == "eu")
+    }
+
     @Test func oauthStateIsSingleUse() throws {
         let db = try database()
         try db.oauthStates.create(provider: "x", state: "abc", verifier: "ver")
