@@ -37,13 +37,25 @@ private struct AccountSection: View {
     let network: Network
     @State private var clientId = ""
     @State private var clientSecret = ""
-    @State private var pds = "https://bsky.social"
+    @State private var pds = AccountSettings.defaultPDS
     @State private var handle = ""
     @State private var appPassword = ""
     @State private var showingHelp = false
+    @State private var confirmRemove = false
+
+    private var connection: ConnectionInfo {
+        appModel.connection(for: network)
+    }
+
+    private var isDisconnected: Bool {
+        connection.state == .disconnected
+    }
+
+    private var settingsIdentity: String {
+        "\(connection.state.rawValue)|\(connection.credentialRef ?? "")"
+    }
 
     var body: some View {
-        let connection = appModel.connection(for: network)
         let caps = Capabilities.capabilities(for: network)
 
         Section {
@@ -68,11 +80,22 @@ private struct AccountSection: View {
                     .foregroundStyle(.secondary)
             }
 
-            if connection.state == .disconnected {
-                connectFields
+            credentialFields
+
+            if isDisconnected {
+                connectButton
             } else {
-                Button("Disconnect", role: .destructive) {
-                    appModel.disconnect(network: network)
+                HStack(spacing: 8) {
+                    Button("Save") {
+                        save()
+                    }
+                    .disabled(!canSave || appModel.isBusy)
+                    .accessibilityIdentifier("save-account-\(network.rawValue)")
+                    Button("Remove Account…", role: .destructive) {
+                        confirmRemove = true
+                    }
+                    .disabled(appModel.isBusy)
+                    .accessibilityIdentifier("remove-account-\(network.rawValue)")
                 }
             }
         } header: {
@@ -81,21 +104,53 @@ private struct AccountSection: View {
         .sheet(isPresented: $showingHelp) {
             MetaCredentialsHelp(network: network)
         }
+        .confirmationDialog(removeTitle, isPresented: $confirmRemove, titleVisibility: .visible) {
+            Button("Remove Account", role: .destructive) {
+                appModel.disconnect(network: network)
+                clientSecret = ""
+                appPassword = ""
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This deletes the stored credentials. Drafts and history are kept.")
+        }
+        .onAppear {
+            applyStoredSettings(connection)
+        }
+        .onChange(of: settingsIdentity) { _, _ in
+            applyStoredSettings(appModel.connection(for: network))
+        }
     }
 
     @ViewBuilder
-    private var connectFields: some View {
+    private var credentialFields: some View {
+        let keepPrompt = !isDisconnected
         switch network {
         case .x:
             TextField("Client ID", text: $clientId)
-            Button("Connect") {
-                appModel.connectX(clientId: clientId.trimmingCharacters(in: .whitespacesAndNewlines))
-            }
-            .disabled(clientId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || appModel.isBusy)
         case .bluesky:
             TextField("PDS", text: $pds)
             TextField("Handle", text: $handle)
-            SecureField("App password", text: $appPassword)
+            SecureField(keepPrompt ? "stored — leave blank to keep" : "App password", text: $appPassword)
+        case .threads, .instagram:
+            TextField("App ID", text: $clientId)
+            SecureField(keepPrompt ? "stored — leave blank to keep" : "App Secret", text: $clientSecret)
+            Button("Where do I find the App ID and App Secret?") {
+                showingHelp = true
+            }
+            .buttonStyle(.link)
+        }
+    }
+
+    @ViewBuilder
+    private var connectButton: some View {
+        switch network {
+        case .x:
+            Button("Connect") {
+                appModel.connectX(clientId: clientId.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+            .disabled(trimmedClientId.isEmpty || appModel.isBusy)
+        case .bluesky:
             Button("Connect") {
                 appModel.connectBluesky(
                     pds: pds.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -103,14 +158,8 @@ private struct AccountSection: View {
                     appPassword: appPassword
                 )
             }
-            .disabled(handle.isEmpty || appPassword.isEmpty || appModel.isBusy)
+            .disabled(trimmedHandle.isEmpty || appPassword.isEmpty || appModel.isBusy)
         case .threads, .instagram:
-            TextField("App ID", text: $clientId)
-            SecureField("App Secret", text: $clientSecret)
-            Button("Where do I find the App ID and App Secret?") {
-                showingHelp = true
-            }
-            .buttonStyle(.link)
             Button("Connect") {
                 if network == .threads {
                     appModel.connectThreads(clientId: clientId, clientSecret: clientSecret)
@@ -118,7 +167,65 @@ private struct AccountSection: View {
                     appModel.connectInstagram(clientId: clientId, clientSecret: clientSecret)
                 }
             }
-            .disabled(clientId.isEmpty || clientSecret.isEmpty || appModel.isBusy)
+            .disabled(trimmedClientId.isEmpty || clientSecret.isEmpty || appModel.isBusy)
+        }
+    }
+
+    private var canSave: Bool {
+        let hasSecret = appModel.accountSettings(for: network).hasStoredSecret
+        switch network {
+        case .x:
+            return !trimmedClientId.isEmpty
+        case .bluesky:
+            return !trimmedHandle.isEmpty && (!appPassword.isEmpty || hasSecret)
+        case .threads, .instagram:
+            return !trimmedClientId.isEmpty && (!clientSecret.isEmpty || hasSecret)
+        }
+    }
+
+    private var trimmedClientId: String {
+        clientId.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedHandle: String {
+        handle.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var removeTitle: String {
+        if let label = connection.accountLabel, !label.isEmpty {
+            return "Remove the connected \(network.title) account \(label)?"
+        }
+        return "Remove the connected \(network.title) account?"
+    }
+
+    private func save() {
+        appModel.saveAccount(
+            network: network,
+            clientId: clientId,
+            clientSecret: clientSecret,
+            pds: pds,
+            handle: handle,
+            appPassword: appPassword
+        )
+        clientSecret = ""
+        appPassword = ""
+    }
+
+    private func applyStoredSettings(_ connection: ConnectionInfo) {
+        clientSecret = ""
+        appPassword = ""
+        guard connection.state != .disconnected else { return }
+        let settings = appModel.accountSettings(for: network)
+        switch network {
+        case .x, .threads, .instagram:
+            if !settings.clientId.isEmpty {
+                clientId = settings.clientId
+            }
+        case .bluesky:
+            pds = settings.pds
+            if !settings.handle.isEmpty {
+                handle = settings.handle
+            }
         }
     }
 }

@@ -35,6 +35,7 @@
 		83642B75C681A243C27586BB /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 503ECAD99BAF238029220985 /* HistoryView.swift */; };
 		838FEAB8774BDDBC612B56D0 /* Capabilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 359AE68416B731868AE2C3A1 /* Capabilities.swift */; };
 		87F3FADDA89A010D4066B875 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533F68117C958B61D7379E2A /* SettingsView.swift */; };
+		8AE8454F12275B4DB222C8EE /* AccountSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6A84BEF66ECE30725606B10 /* AccountSettings.swift */; };
 		8CF38D2CD1D42C8F15F3D914 /* ConnectService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE38E9F798CFA151F92C35D9 /* ConnectService.swift */; };
 		9D1E81F4B8D6FF8B1B78703D /* Credentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 128314124E5F4897C8897637 /* Credentials.swift */; };
 		A04844206A3395B320E0C156 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5112B664F262EEFCBEDB2D9 /* Models.swift */; };
@@ -113,6 +114,7 @@
 		9A59FBA42524ECDA77C8C915 /* R2Stager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R2Stager.swift; sourceTree = "<group>"; };
 		9F8D33D7387D7506330198B1 /* DestinationInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationInspector.swift; sourceTree = "<group>"; };
 		A07DB0E32DC92209CBF0B9E1 /* XAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XAdapter.swift; sourceTree = "<group>"; };
+		A6A84BEF66ECE30725606B10 /* AccountSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettings.swift; sourceTree = "<group>"; };
 		A97D2DEDE4C1CCC2B0665CEE /* Blather.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Blather.entitlements; sourceTree = "<group>"; };
 		AD563F2018C809584F699031 /* MainSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitView.swift; sourceTree = "<group>"; };
 		AE38E9F798CFA151F92C35D9 /* ConnectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectService.swift; sourceTree = "<group>"; };
@@ -292,6 +294,7 @@
 		A03EFAD95F0B24A25CC6E6CD /* Domain */ = {
 			isa = PBXGroup;
 			children = (
+				A6A84BEF66ECE30725606B10 /* AccountSettings.swift */,
 				359AE68416B731868AE2C3A1 /* Capabilities.swift */,
 				D5112B664F262EEFCBEDB2D9 /* Models.swift */,
 				47506723F8DCA3581E5B301E /* Overrides.swift */,
@@ -500,6 +503,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DFFCD9B8FB286E4411C80A2D /* AboutSettingsPane.swift in Sources */,
+				8AE8454F12275B4DB222C8EE /* AccountSettings.swift in Sources */,
 				820D59537F99116EF80C5C1D /* AccountsSettingsPane.swift in Sources */,
 				196D66E33DF93F52F430241D /* AppCommands.swift in Sources */,
 				362EB1F3AE7ED394515832D9 /* AppDatabase.swift in Sources */,
