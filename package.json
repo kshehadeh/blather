@@ -20,6 +20,8 @@
     "github": "bun scripts/blather.ts github",
     "build:release": "bash ./scripts/build-release.sh",
     "build:dmg": "bun run build:release && bash ./scripts/build-dmg.sh",
+    "signing:import": "bash ./scripts/import-signing.sh",
+    "notarize": "bash ./scripts/notarize.sh",
     "release": "release-it",
     "release:dry": "release-it --dry-run",
     "release:ci": "bun ./scripts/release-ci.mjs",

@@ -6,10 +6,16 @@
 #
 # Requires: dist/Blather.app already built (run scripts/build-release.sh first).
 # Produces: dist/Blather.dmg
+#
+# Notarizes the DMG when signing credentials are present unless
+# BLATHER_NOTARIZE=false.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=signing-env.sh
+source "$ROOT/scripts/signing-env.sh"
+load_signing_env
 DIST="$ROOT/dist"
 APP="${DIST}/Blather.app"
 DMG="${DIST}/Blather.dmg"
@@ -40,3 +46,8 @@ hdiutil create \
 	"${DMG}"
 
 echo "Built ${DMG}"
+
+if [[ "${BLATHER_SIGNING:-}" != "false" ]] && [[ -n "$(developer_id_identity)" ]]; then
+	echo "Notarizing ${DMG}"
+	bash "$ROOT/scripts/notarize.sh" "${DMG}"
+fi

@@ -7,11 +7,18 @@
 #
 # Signs with Developer ID when a certificate is in the keychain unless
 # BLATHER_SIGNING=false. CI imports the cert before calling this script.
+#
+# After a signed export, notarizes (or staples a ticket already submitted from
+# another computer / CI) unless BLATHER_NOTARIZE=false. Import credentials from
+# another Mac with: bun run signing:import
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=signing-env.sh
+source "$ROOT/scripts/signing-env.sh"
+load_signing_env
 
 if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
 	VERSION="${BLATHER_VERSION:-${GITHUB_REF_NAME#v}}"
@@ -84,6 +91,8 @@ EOF
 		-exportPath "$EXPORT_DIR" \
 		-exportOptionsPlist dist/ExportOptions.plist
 	mv "${EXPORT_DIR}/Blather.app" dist/Blather.app
+	echo "Notarizing dist/Blather.app"
+	bash "$ROOT/scripts/notarize.sh" "${ROOT}/dist/Blather.app"
 else
 	echo "Archiving unsigned (no Developer ID identity, or BLATHER_SIGNING=false)"
 	xcodebuild "${xcodebuild_common[@]}" \

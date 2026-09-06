@@ -97,6 +97,8 @@ bun run build      # Debug build
 bun run test       # unit tests
 bun run keys       # Sparkle EdDSA keypair (once; private key stays in Keychain)
 bun run bump -- 0.2.0
+bun run signing:import   # Developer ID + notarytool profile from another Mac
+bun run build:release    # signed + notarized dist/Blather.app
 ```
 
 Unit tests use an in-memory SQLite database and a memory Keychain.

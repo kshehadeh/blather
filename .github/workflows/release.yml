@@ -100,86 +100,28 @@ jobs:
 
       - name: Build release app
         env:
+          APPLE_ID: ${{ vars.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           BLATHER_BUILD_NUMBER: ${{ github.run_number }}
           BLATHER_SIGNING: ${{ steps.signing.outputs.enabled == 'true' && 'true' || 'false' }}
+          BLATHER_NOTARIZE: ${{ steps.signing.outputs.enabled == 'true' && 'true' || 'false' }}
         run: chmod +x scripts/build-release.sh && ./scripts/build-release.sh
 
       - name: Verify signature
         if: steps.signing.outputs.enabled == 'true'
         run: codesign --verify --strict --verbose=2 dist/Blather.app
 
-      - name: Notarize Blather.app
-        if: steps.signing.outputs.enabled == 'true'
+      - name: Build DMG
         env:
           APPLE_ID: ${{ vars.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-        run: |
-          ditto -c -k --keepParent dist/Blather.app dist/Blather.app.notary.zip
-          submit_output="$(xcrun notarytool submit dist/Blather.app.notary.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait 2>&1)"
-          echo "$submit_output"
-
-          submission_id="$(echo "$submit_output" | grep -m1 'id:' | awk '{print $2}')"
-          status="$(echo "$submit_output" | grep 'status:' | tail -1 | awk '{print $2}')"
-          echo "Notarization status: $status"
-
-          if [[ "$status" != "Accepted" ]]; then
-            echo "Notarization was NOT accepted. Fetching log..." >&2
-            if [[ -n "$submission_id" ]]; then
-              xcrun notarytool log "$submission_id" \
-                --apple-id "$APPLE_ID" \
-                --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID" >&2
-            fi
-            exit 1
-          fi
-
-      - name: Staple notarization ticket to Blather.app
-        if: steps.signing.outputs.enabled == 'true'
-        run: |
-          xcrun stapler staple dist/Blather.app
-          xcrun stapler validate dist/Blather.app
-
-      - name: Build DMG
+          BLATHER_SIGNING: ${{ steps.signing.outputs.enabled == 'true' && 'true' || 'false' }}
+          BLATHER_NOTARIZE: ${{ steps.signing.outputs.enabled == 'true' && 'true' || 'false' }}
         run: |
           chmod +x scripts/build-dmg.sh
           ./scripts/build-dmg.sh
-
-      - name: Notarize DMG
-        if: steps.signing.outputs.enabled == 'true'
-        env:
-          APPLE_ID: ${{ vars.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
-        run: |
-          submit_output="$(xcrun notarytool submit dist/Blather.dmg \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait 2>&1)"
-          echo "$submit_output"
-
-          submission_id="$(echo "$submit_output" | grep -m1 'id:' | awk '{print $2}')"
-          status="$(echo "$submit_output" | grep 'status:' | tail -1 | awk '{print $2}')"
-          echo "DMG notarization status: $status"
-
-          if [[ "$status" != "Accepted" ]]; then
-            echo "DMG notarization was NOT accepted. Fetching log..." >&2
-            if [[ -n "$submission_id" ]]; then
-              xcrun notarytool log "$submission_id" \
-                --apple-id "$APPLE_ID" \
-                --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID" >&2
-            fi
-            exit 1
-          fi
-
-          xcrun stapler staple dist/Blather.dmg
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4

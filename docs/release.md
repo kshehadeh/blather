@@ -78,9 +78,39 @@ bun run build:release   # dist/Blather.app (unsigned unless Developer ID is in t
 bun run build:dmg       # dist/Blather.dmg
 ```
 
-Set `BLATHER_SIGNING=false` to force an unsigned local archive.
+Set `BLATHER_SIGNING=false` to force an unsigned local archive. Set `BLATHER_NOTARIZE=false` to sign without submitting to Apple.
 
 The older Mac-side pipeline (`bun run release:local`, `archive` / `export` / `dmg` / `sign` / `appcast` / `github`) still exists as a fallback. Prefer the tag + Actions path.
+
+## Local signing and notarization from another Mac
+
+This MacBook only has an Apple Development certificate. Developer ID signing and notarytool credentials live on the computer where you exported `CSC_LINK` (and in GitHub Actions secrets). Copy them once, then local `bun run build:release` signs, notarizes, and staples the same way CI does.
+
+On the Mac that already has **Developer ID Application** in Keychain Access:
+
+1. Keychain Access → login → My Certificates → select the Developer ID Application identity.
+2. File → Export Items… → save a `.p12` and set a password.
+3. Encode it:
+
+```bash
+base64 -i /path/to/developer-id-application.p12 | tr -d '\n' | pbcopy
+```
+
+On this Mac:
+
+```bash
+cp .env.signing.example .env.signing
+# paste CSC_LINK, CSC_KEY_PASSWORD, and APPLE_APP_SPECIFIC_PASSWORD
+bun run signing:import
+bun run build:release
+```
+
+`signing:import` puts the certificate in your login keychain and stores a `notarytool` profile named `blather`. After that, you can delete the secrets from `.env.signing` (the file is gitignored).
+
+Notarization then:
+
+1. Staples an existing Apple ticket if this exact binary was already notarized (including from the other computer or CI).
+2. Otherwise submits with `notarytool` using the keychain profile, or `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`.
 
 ## Safety
 

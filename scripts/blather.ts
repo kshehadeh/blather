@@ -56,6 +56,9 @@ async function dispatch(name: string): Promise<void> {
       return archive();
     case "export":
       return exportArchive();
+    case "signing:import":
+    case "signing-import":
+      return signingImport();
     case "dmg":
       return dmg();
     case "sign":
@@ -88,6 +91,7 @@ Usage: bun run <script> [-- flags]
   bump <version>    Set MARKETING_VERSION and increment build
   archive           Release archive (Developer ID)
   export            Export + notarize Developer ID app from the archive
+  signing:import    Import Developer ID .p12 + notarytool profile from .env.signing
   dmg               Create Blather.dmg from the exported app
   sign              Sparkle-sign the DMG
   appcast           Insert a Sparkle appcast item
@@ -225,9 +229,13 @@ async function exportArchive(): Promise<void> {
   if (code !== 0) fail(errors.at(-1) ?? `exportArchive exited ${code}`);
   const app = join(exportDir, cfg.bundle_name);
   if (!existsSync(app)) fail(`Export succeeded but ${app} is missing`);
-  log("Stapling notarization ticket");
-  await run(["xcrun", "stapler", "staple", app], { allowFail: true });
+  log("Notarizing (staple existing ticket, else submit)");
+  await run(["bash", join(repoRoot, "scripts", "notarize.sh"), app]);
   ok(app);
+}
+
+async function signingImport(): Promise<void> {
+  await run(["bash", join(repoRoot, "scripts", "import-signing.sh")]);
 }
 
 async function dmg(): Promise<void> {
