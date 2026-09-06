@@ -188,7 +188,9 @@ jobs:
           path: dist/Blather.dmg
 
       - name: Generate Sparkle appcast
+        id: appcast
         if: steps.signing.outputs.enabled == 'true' && steps.sparkle.outputs.enabled == 'true'
+        continue-on-error: true
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
@@ -220,6 +222,10 @@ jobs:
           if not text:
               print("SPARKLE_PRIVATE_KEY is empty after normalization.", file=sys.stderr)
               sys.exit(1)
+          pad = (4 - len(text) % 4) % 4
+          if pad:
+              text += "=" * pad
+              print(f"Added {pad} base64 padding character(s).")
           try:
               data = base64.b64decode(text, validate=True)
           except Exception:
@@ -248,7 +254,7 @@ jobs:
             "$appcast_input"
 
       - name: Upload appcast artifact
-        if: steps.signing.outputs.enabled == 'true' && steps.sparkle.outputs.enabled == 'true'
+        if: steps.signing.outputs.enabled == 'true' && steps.sparkle.outputs.enabled == 'true' && hashFiles('dist/appcast.xml') != ''
         uses: actions/upload-artifact@v4
         with:
           name: appcast.xml
