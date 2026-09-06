@@ -42,6 +42,8 @@ private struct AccountSection: View {
     @State private var appPassword = ""
     @State private var showingHelp = false
     @State private var confirmRemove = false
+    @State private var isExpanded = false
+    @State private var hasInitializedExpansion = false
 
     private var connection: ConnectionInfo {
         appModel.connection(for: network)
@@ -56,50 +58,42 @@ private struct AccountSection: View {
     }
 
     var body: some View {
-        let caps = Capabilities.capabilities(for: network)
-
         Section {
-            LabeledContent("Status") {
-                Text(connection.state.rawValue.capitalized)
-                    .foregroundStyle(connection.state == .error ? .red : .secondary)
-            }
-            if let label = connection.accountLabel {
-                LabeledContent("Account", value: label)
-            }
-            if let error = connection.error {
-                Text(error)
-                    .foregroundStyle(.red)
-                    .font(.callout)
-            }
-            Text("\(caps.maxChars) characters, up to \(caps.maxImages) images\(caps.allowsVideo ? ", video" : "")\(caps.requiresMedia ? ", media required" : "")")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            ForEach(caps.notes, id: \.self) { note in
-                Text(note)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            headerRow
 
-            credentialFields
+            if isExpanded {
+                LabeledContent("Status") {
+                    Text(connection.state.rawValue.capitalized)
+                        .foregroundStyle(connection.state == .error ? .red : .secondary)
+                }
+                if let label = connection.accountLabel {
+                    LabeledContent("Account", value: label)
+                }
+                if let error = connection.error {
+                    Text(error)
+                        .foregroundStyle(.red)
+                        .font(.callout)
+                }
 
-            if isDisconnected {
-                connectButton
-            } else {
-                HStack(spacing: 8) {
-                    Button("Save") {
-                        save()
+                credentialFields
+
+                if isDisconnected {
+                    connectButton
+                } else {
+                    HStack(spacing: 8) {
+                        Button("Save") {
+                            save()
+                        }
+                        .disabled(!canSave || appModel.isBusy)
+                        .accessibilityIdentifier("save-account-\(network.rawValue)")
+                        Button("Remove Account…", role: .destructive) {
+                            confirmRemove = true
+                        }
+                        .disabled(appModel.isBusy)
+                        .accessibilityIdentifier("remove-account-\(network.rawValue)")
                     }
-                    .disabled(!canSave || appModel.isBusy)
-                    .accessibilityIdentifier("save-account-\(network.rawValue)")
-                    Button("Remove Account…", role: .destructive) {
-                        confirmRemove = true
-                    }
-                    .disabled(appModel.isBusy)
-                    .accessibilityIdentifier("remove-account-\(network.rawValue)")
                 }
             }
-        } header: {
-            Label(network.title, systemImage: network.systemImage)
         }
         .sheet(isPresented: $showingHelp) {
             MetaCredentialsHelp(network: network)
@@ -115,11 +109,68 @@ private struct AccountSection: View {
             Text("This deletes the stored credentials. Drafts and history are kept.")
         }
         .onAppear {
+            if !hasInitializedExpansion {
+                isExpanded = connection.state != .connected
+                hasInitializedExpansion = true
+            }
             applyStoredSettings(connection)
         }
         .onChange(of: settingsIdentity) { _, _ in
             applyStoredSettings(appModel.connection(for: network))
         }
+    }
+
+    private var headerRow: some View {
+        HStack(spacing: 8) {
+            Button(action: toggleExpanded) {
+                HStack(spacing: 8) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 10)
+                    Image(systemName: network.systemImage)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16)
+                    Text(network.title)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("account-section-\(network.rawValue)")
+            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+
+            Image(systemName: "info.circle")
+                .foregroundStyle(.secondary)
+                .imageScale(.small)
+                .help(capabilityHelp)
+                .accessibilityLabel("About \(network.title)")
+                .accessibilityHint(capabilityHelp)
+
+            Button(action: toggleExpanded) {
+                HStack(spacing: 8) {
+                    Spacer(minLength: 8)
+                    if connection.state == .connected, let label = connection.accountLabel, !label.isEmpty {
+                        Text(label)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    ConnectionStateBadge(state: connection.state)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func toggleExpanded() {
+        withAnimation(.snappy) { isExpanded.toggle() }
+    }
+
+    private var capabilityHelp: String {
+        let caps = Capabilities.capabilities(for: network)
+        var parts = [
+            "\(caps.maxChars) characters, up to \(caps.maxImages) images\(caps.allowsVideo ? ", video" : "")\(caps.requiresMedia ? ", media required" : "")",
+        ]
+        parts.append(contentsOf: caps.notes)
+        return parts.joined(separator: "\n\n")
     }
 
     @ViewBuilder
@@ -226,6 +277,35 @@ private struct AccountSection: View {
             if !settings.handle.isEmpty {
                 handle = settings.handle
             }
+        }
+    }
+}
+
+private struct ConnectionStateBadge: View {
+    let state: ConnectionState
+
+    var body: some View {
+        Text(state.rawValue.capitalized)
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .foregroundStyle(foreground)
+            .background(background, in: Capsule())
+    }
+
+    private var foreground: Color {
+        switch state {
+        case .connected: .green
+        case .disconnected: .secondary
+        case .error: .red
+        }
+    }
+
+    private var background: Color {
+        switch state {
+        case .connected: Color.green.opacity(0.15)
+        case .disconnected: Color.secondary.opacity(0.12)
+        case .error: Color.red.opacity(0.15)
         }
     }
 }
