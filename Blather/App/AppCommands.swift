@@ -8,10 +8,7 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut(",", modifiers: .command)
 
-            Button("Check for Updates…") {
-                UpdaterManager.shared.checkForUpdates()
-            }
-            .disabled(!UpdaterManager.shared.canCheckForUpdates)
+            CheckForUpdatesButton()
         }
 
         CommandGroup(replacing: .newItem) {
@@ -64,5 +61,20 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut("i", modifiers: [.command, .option])
         }
+
+        CommandGroup(after: .help) {
+            CheckForUpdatesButton()
+        }
+    }
+}
+
+private struct CheckForUpdatesButton: View {
+    @ObservedObject private var updaterManager = UpdaterManager.shared
+
+    var body: some View {
+        Button("Check for Updates…") {
+            updaterManager.checkForUpdates()
+        }
+        .disabled(!updaterManager.canCheckForUpdates)
     }
 }
