@@ -181,6 +181,12 @@ jobs:
 
           xcrun stapler staple dist/Blather.dmg
 
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blather.dmg
+          path: dist/Blather.dmg
+
       - name: Generate Sparkle appcast
         if: steps.signing.outputs.enabled == 'true' && steps.sparkle.outputs.enabled == 'true'
         env:
@@ -195,14 +201,51 @@ jobs:
           mkdir -p "$appcast_input"
           cp dist/Blather.dmg "$appcast_input/Blather.dmg"
 
+          key_file="$RUNNER_TEMP/sparkle_eddsa.key"
+          python3 - <<'PY'
+          import base64
+          import os
+          import pathlib
+          import sys
+
+          raw = os.environ.get("SPARKLE_PRIVATE_KEY") or ""
+          text = raw.strip().strip('"').strip("'").strip()
+          if "BEGIN" in text:
+              text = "".join(
+                  line.strip()
+                  for line in text.splitlines()
+                  if line.strip() and not line.strip().startswith("-----")
+              )
+          text = "".join(text.split())
+          if not text:
+              print("SPARKLE_PRIVATE_KEY is empty after normalization.", file=sys.stderr)
+              sys.exit(1)
+          try:
+              data = base64.b64decode(text, validate=True)
+          except Exception:
+              print(
+                  f"SPARKLE_PRIVATE_KEY is not valid base64 after normalization (length={len(text)}).",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "sparkle_eddsa.key"
+          path.write_text(text + "\n")
+          path.chmod(0o600)
+          print(f"Wrote EdDSA key file ({len(text)} chars, {len(data)} decoded bytes).")
+          if len(data) not in (32, 64):
+              print(
+                  f"Warning: decoded key is {len(data)} bytes; Sparkle typically uses 32 (seed) or 64 (legacy).",
+                  file=sys.stderr,
+              )
+          PY
+
           download_prefix="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/"
-          printf '%s' "$SPARKLE_PRIVATE_KEY" | \
-            "$sparkle_dir/bin/generate_appcast" \
-              --ed-key-file - \
-              --download-url-prefix "$download_prefix" \
-              --maximum-versions 1 \
-              -o dist/appcast.xml \
-              "$appcast_input"
+          "$sparkle_dir/bin/generate_appcast" \
+            --ed-key-file "$key_file" \
+            --download-url-prefix "$download_prefix" \
+            --maximum-versions 1 \
+            -o dist/appcast.xml \
+            "$appcast_input"
 
       - name: Upload appcast artifact
         if: steps.signing.outputs.enabled == 'true' && steps.sparkle.outputs.enabled == 'true'
@@ -210,12 +253,6 @@ jobs:
         with:
           name: appcast.xml
           path: dist/appcast.xml
-
-      - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Blather.dmg
-          path: dist/Blather.dmg
 
   publish:
     needs: build

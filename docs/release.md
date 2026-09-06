@@ -57,7 +57,7 @@ Sparkle keys are **not** the Developer ID certificate. Generate them once on a t
 bun run keys
 ```
 
-Store the public key in `project.yml` (`SUPublicEDKey`) and in `SPARKLE_PUBLIC_KEY`. Store the private key in `SPARKLE_PRIVATE_KEY` (and in your login Keychain). Never commit the private key.
+Store the public key in `project.yml` (`SUPublicEDKey`) and in `SPARKLE_PUBLIC_KEY`. Export the private key with Sparkle `generate_keys -x` (a single line of base64) and store that in `SPARKLE_PRIVATE_KEY` (and in your login Keychain). Never commit the private key.
 
 ## Sparkle feed
 
