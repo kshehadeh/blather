@@ -216,6 +216,45 @@ final class AppModel {
         }
     }
 
+    func accountSettings(for network: Network) -> AccountConnectSettings {
+        AccountSettings.load(network: network, database: database)
+    }
+
+    func saveAccount(
+        network: Network,
+        clientId: String,
+        clientSecret: String,
+        pds: String,
+        handle: String,
+        appPassword: String
+    ) {
+        let stored = accountSettings(for: network)
+        let storedAppPassword = Credentials.read(BasicCredentials.self, ref: connection(for: network).credentialRef)?.secret
+        let storedClientSecret = TokenAccess.loadTokens(network: network, database: database)?.meta?["clientSecret"]
+        switch AccountSettings.plan(
+            network: network,
+            clientId: clientId,
+            clientSecret: clientSecret,
+            pds: pds,
+            handle: handle,
+            appPassword: appPassword,
+            stored: stored,
+            storedAppPassword: storedAppPassword,
+            storedClientSecret: storedClientSecret
+        ) {
+        case .noOp:
+            statusMessage = "No changes to save"
+        case .reconnectBluesky(let pds, let handle, let appPassword):
+            connectBluesky(pds: pds, handle: handle, appPassword: appPassword)
+        case .reconnectX(let clientId):
+            connectX(clientId: clientId)
+        case .reconnectThreads(let clientId, let clientSecret):
+            connectThreads(clientId: clientId, clientSecret: clientSecret)
+        case .reconnectInstagram(let clientId, let clientSecret):
+            connectInstagram(clientId: clientId, clientSecret: clientSecret)
+        }
+    }
+
     func runHealthChecks() {
         isBusy = true
         Task {
