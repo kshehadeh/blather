@@ -23,6 +23,9 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
+        .onAppear {
+            appModel.backfillHistoryPermalinks()
+        }
     }
 }
 

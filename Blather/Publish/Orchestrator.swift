@@ -56,6 +56,37 @@ enum PublishOrchestrator {
         }
     }
 
+    /// One Graph GET per successful Threads/Instagram row that has an id but no URL.
+    /// Skips disconnected accounts. Never fails a stored success if the lookup misses.
+    @discardableResult
+    static func backfillMissingPostURLs(database: AppDatabase) async -> Bool {
+        let attempts = (try? database.attempts.list()) ?? []
+        var changed = false
+        for attempt in attempts where needsPermalinkBackfill(attempt) {
+            guard let postId = attempt.providerPostId else { continue }
+            let adapter = AdapterRegistry.adapter(for: attempt.network, database: database)
+            guard adapter.isConnected() else { continue }
+            guard let permalink = await adapter.lookupPermalink(mediaId: postId), !permalink.isEmpty else {
+                continue
+            }
+            try? database.attempts.setStatus(
+                id: attempt.id,
+                status: .success,
+                providerPostUrl: permalink
+            )
+            changed = true
+        }
+        return changed
+    }
+
+    private static func needsPermalinkBackfill(_ attempt: PublishAttempt) -> Bool {
+        guard attempt.status == .success else { return false }
+        guard attempt.network == .threads || attempt.network == .instagram else { return false }
+        guard let postId = attempt.providerPostId, !postId.isEmpty else { return false }
+        if let url = attempt.providerPostUrl, !url.isEmpty { return false }
+        return true
+    }
+
     private static func runAttempt(
         _ attempt: PublishAttempt,
         draft: Draft,

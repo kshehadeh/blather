@@ -59,7 +59,26 @@ struct ThreadsAdapter: ProviderAdapter {
             body: ProviderHTTP.form(["creation_id": creationId, "access_token": tokens.accessToken])
         )
         let id = JSONValue.string(res, "id")
-        return PublishResult(providerPostId: id?.isEmpty == true ? nil : id)
+        return await GraphPermalink.publishResult(
+            network: .threads,
+            graphBase: graph,
+            mediaId: id,
+            accessToken: tokens.accessToken
+        )
+    }
+
+    func lookupPermalink(mediaId: String) async -> String? {
+        try? await refreshIfNeeded()
+        guard let tokens = TokenAccess.loadTokens(network: .threads, database: database),
+              !tokens.accessToken.isEmpty
+        else { return nil }
+        return await GraphPermalink.fetch(
+            network: .threads,
+            graphBase: graph,
+            mediaId: mediaId,
+            accessToken: tokens.accessToken,
+            attempts: 1
+        )
     }
 
     func normalizeError(_ error: Error) -> String {

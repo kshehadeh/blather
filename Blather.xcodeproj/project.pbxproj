@@ -41,6 +41,7 @@
 		A04844206A3395B320E0C156 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5112B664F262EEFCBEDB2D9 /* Models.swift */; };
 		AAB8A322CC4BF761A3A6037D /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F559D0609D751E35A58B91 /* HTTPClient.swift */; };
 		B34DC04E4528D596A7F70223 /* MediaStagingSettingsPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BB4B865203B266C509778F /* MediaStagingSettingsPane.swift */; };
+		B4BCE16DDDC2270A236699F6 /* GraphPermalink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861C7F035F82B9077140F13E /* GraphPermalink.swift */; };
 		B8E6847A274CEFFE90DBE83E /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CB3312CD3852105D439EE3 /* SmokeTests.swift */; };
 		BC58555F6020D0CCDF4A6E8E /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F857D6762B40E7D7B68B674 /* SettingsWindowController.swift */; };
 		C144E42F17189779843545A4 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60DF60A78384B9B25714588C /* Redaction.swift */; };
@@ -107,6 +108,7 @@
 		7A03F7F490C0B9883B4CB246 /* ThreadsAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadsAdapter.swift; sourceTree = "<group>"; };
 		7B7D6E319D7BBF3AB67005B5 /* TLSIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TLSIdentity.swift; sourceTree = "<group>"; };
 		827F6B61C5ABD07393423050 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		861C7F035F82B9077140F13E /* GraphPermalink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphPermalink.swift; sourceTree = "<group>"; };
 		87B3E2C8521208D3465725B2 /* ConnectionStatusToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusToolbar.swift; sourceTree = "<group>"; };
 		94F559D0609D751E35A58B91 /* HTTPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPClient.swift; sourceTree = "<group>"; };
 		96B6498D9017BD16C748213C /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
@@ -330,6 +332,7 @@
 			children = (
 				BC112B367465D11896AE4DB5 /* BlueskyAdapter.swift */,
 				FB7E0AA37B99BD42FD938A4D /* ConnectionStore.swift */,
+				861C7F035F82B9077140F13E /* GraphPermalink.swift */,
 				F602B0ADACAE328CF3B5C3A4 /* InstagramAdapter.swift */,
 				66B4ED3BD26B643ADEA4EF32 /* ProviderAdapter.swift */,
 				7A03F7F490C0B9883B4CB246 /* ThreadsAdapter.swift */,
@@ -521,6 +524,7 @@
 				9D1E81F4B8D6FF8B1B78703D /* Credentials.swift in Sources */,
 				F1C1277BA6BFDC3277775C7F /* DestinationInspector.swift in Sources */,
 				31738F18C92526AE18F8018A /* GeneralSettingsPane.swift in Sources */,
+				B4BCE16DDDC2270A236699F6 /* GraphPermalink.swift in Sources */,
 				AAB8A322CC4BF761A3A6037D /* HTTPClient.swift in Sources */,
 				83642B75C681A243C27586BB /* HistoryView.swift in Sources */,
 				CD12AD66E6DD13257037A278 /* InstagramAdapter.swift in Sources */,
@@ -625,7 +629,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -713,7 +717,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

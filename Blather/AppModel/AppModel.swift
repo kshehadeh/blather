@@ -30,6 +30,7 @@ final class AppModel {
     var statusMessage: String?
     var isBusy = false
     let database: AppDatabase
+    private var permalinkBackfillTask: Task<Void, Never>?
 
     init(database: AppDatabase) {
         self.database = database
@@ -43,6 +44,20 @@ final class AppModel {
         connections = Network.allCases.map { network in
             stored.first { $0.network == network }
                 ?? ConnectionInfo(network: network, state: .disconnected, meta: [:])
+        }
+        backfillHistoryPermalinks()
+    }
+
+    func backfillHistoryPermalinks() {
+        guard permalinkBackfillTask == nil else { return }
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return }
+        let database = database
+        permalinkBackfillTask = Task {
+            defer { permalinkBackfillTask = nil }
+            let changed = await PublishOrchestrator.backfillMissingPostURLs(database: database)
+            if changed {
+                history = (try? database.attempts.list()) ?? history
+            }
         }
     }
 

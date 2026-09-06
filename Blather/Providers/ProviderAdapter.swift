@@ -26,6 +26,11 @@ protocol ProviderAdapter: Sendable {
     func publish(content: ResolvedContent, context: any PublishContext) async throws -> PublishResult
     func normalizeError(_ error: Error) -> String
     func health() async -> HealthResult
+    func lookupPermalink(mediaId: String) async -> String?
+}
+
+extension ProviderAdapter {
+    func lookupPermalink(mediaId: String) async -> String? { nil }
 }
 
 enum AdapterRegistry {
