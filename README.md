@@ -8,7 +8,7 @@ lives in a local SQLite database.
 ## Requirements
 
 - macOS 15 or later
-- Xcode 16 or later (to build from source)
+- Xcode 26 or later (to build from source)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 - Your own developer apps/accounts for each network you want to use (see below)
 - A Cloudflare R2 bucket if you want to publish media to Threads or Instagram
@@ -111,41 +111,18 @@ a low-stakes post per network.
 
 ## Release
 
-You need a **paid Apple Developer Program** membership and a **Developer ID Application**
-certificate (Apple Development is not enough — that is what causes `xcodebuild` export exit 70 /
-“No Team Found in Archive”). Create the cert in
-[Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/certificates/list),
-then Xcode → Settings → Accounts → Manage Certificates. Also:
+Releases follow the same flow as Toby: `release-it` bumps and tags locally; GitHub Actions
+builds, signs, notarizes, and publishes.
 
 ```sh
-brew install create-dmg gh
-gh auth login
+bun run release -- patch --ci
+bun run release -- minor --ci
+bun run release -- major --ci
 ```
 
-Full pipeline (archive, notarize/export, DMG, Sparkle sign, appcast, git push, GitHub release):
-
-```sh
-bun run release -- --notes "Native macOS app; Sparkle updates"
-```
-
-If you already exported `Blather.app` from Xcode Organizer to `~/Downloads` or `build/export`:
-
-```sh
-bun run release:pack -- --notes "Bug fixes"
-```
-
-Individual steps:
-
-```sh
-bun run archive    # Release .xcarchive → build/Blather.xcarchive
-bun run export     # Developer ID export + staple → build/export/Blather.app
-bun run dmg        # build/Blather.dmg
-bun run sign       # Sparkle EdDSA signature
-bun run appcast -- --notes "What changed"
-bun run github -- --notes "What changed"
-```
-
-`--yes` skips the confirmation prompt. Debug builds skip Sparkle; ship only the exported Release app.
+`--ci` skips `release-it` prompts. The tag push (`v*`) runs
+[`.github/workflows/release.yml`](.github/workflows/release.yml). See
+[docs/release.md](docs/release.md) for secrets, Sparkle, and the local fallback.
 
 ## Architecture
 

@@ -76,7 +76,7 @@ targets:
         LSMultipleInstancesProhibited: true
         NSHighResolutionCapable: true
         NSPrincipalClass: NSApplication
-        SUFeedURL: https://raw.githubusercontent.com/kshehadeh/blather/main/appcast.xml
+        SUFeedURL: https://kshehadeh.github.io/blather/appcast.xml
         SUEnableInstallerLauncherService: true
         SUPublicEDKey: "JXDN0gcZYfHx55Zlekm9KQGW7W4CuIP/7K14p41eO7k="
     scheme:

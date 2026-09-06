@@ -1,7 +1,9 @@
 {
   "name": "blather",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.10",
   "description": "Build and release scripts for the native Blather macOS app",
   "scripts": {
     "generate": "bun scripts/blather.ts generate",
@@ -16,7 +18,15 @@
     "sign": "bun scripts/blather.ts sign",
     "appcast": "bun scripts/blather.ts appcast",
     "github": "bun scripts/blather.ts github",
-    "release": "bun scripts/blather.ts release",
+    "build:release": "bash ./scripts/build-release.sh",
+    "build:dmg": "bun run build:release && bash ./scripts/build-dmg.sh",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
+    "release:ci": "bun ./scripts/release-ci.mjs",
+    "release:local": "bun scripts/blather.ts release",
     "release:pack": "bun scripts/blather.ts release --pack-only"
+  },
+  "devDependencies": {
+    "release-it": "^20.2.1"
   }
 }

@@ -1,0 +1,373 @@
+# Build a signed, notarized Blather.dmg and attach it to a GitHub Release when
+# you push a version tag (e.g. v0.2.0).
+#
+# Local: bun run release -- patch --ci
+# That bumps package.json + project.yml, commits, tags, and pushes. This
+# workflow does the rest.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.10"
+
+      - name: Select Xcode 26
+        run: |
+          if [ -d /Applications/Xcode_26.6.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.6.app
+          elif [ -d /Applications/Xcode_26.5.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.5.app
+          fi
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Check signing configuration
+        id: signing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=()
+          [ -n "$CSC_LINK" ] || missing+=("CSC_LINK")
+          [ -n "$CSC_KEY_PASSWORD" ] || missing+=("CSC_KEY_PASSWORD")
+          [ -n "$APPLE_ID" ] || missing+=("APPLE_ID")
+          [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] || missing+=("APPLE_APP_SPECIFIC_PASSWORD")
+          [ -n "$APPLE_TEAM_ID" ] || missing+=("APPLE_TEAM_ID")
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Signing and notarization are enabled."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping signing and notarization. Missing secrets: ${missing[*]}"
+          fi
+
+      - name: Check Sparkle configuration
+        id: sparkle
+        env:
+          SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          missing=()
+          [ -n "$SPARKLE_PUBLIC_KEY" ] || missing+=("SPARKLE_PUBLIC_KEY")
+          [ -n "$SPARKLE_PRIVATE_KEY" ] || missing+=("SPARKLE_PRIVATE_KEY")
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Sparkle appcast generation is enabled."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping Sparkle appcast generation. Missing secrets: ${missing[*]}"
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          keychain_path="$RUNNER_TEMP/blather-signing.keychain-db"
+          cert_path="$RUNNER_TEMP/developer-id.p12"
+          echo "$CSC_LINK" | base64 --decode > "$cert_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$cert_path" -P "$CSC_KEY_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security list-keychains -d user -s "$keychain_path" $(security list-keychains -d user | sed s/\"//g)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
+
+      - name: Build release app
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BLATHER_BUILD_NUMBER: ${{ github.run_number }}
+          BLATHER_SIGNING: ${{ steps.signing.outputs.enabled == 'true' && 'true' || 'false' }}
+        run: chmod +x scripts/build-release.sh && ./scripts/build-release.sh
+
+      - name: Verify signature
+        if: steps.signing.outputs.enabled == 'true'
+        run: codesign --verify --strict --verbose=2 dist/Blather.app
+
+      - name: Notarize Blather.app
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          ditto -c -k --keepParent dist/Blather.app dist/Blather.app.notary.zip
+          submit_output="$(xcrun notarytool submit dist/Blather.app.notary.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait 2>&1)"
+          echo "$submit_output"
+
+          submission_id="$(echo "$submit_output" | grep -m1 'id:' | awk '{print $2}')"
+          status="$(echo "$submit_output" | grep 'status:' | tail -1 | awk '{print $2}')"
+          echo "Notarization status: $status"
+
+          if [[ "$status" != "Accepted" ]]; then
+            echo "Notarization was NOT accepted. Fetching log..." >&2
+            if [[ -n "$submission_id" ]]; then
+              xcrun notarytool log "$submission_id" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" >&2
+            fi
+            exit 1
+          fi
+
+      - name: Staple notarization ticket to Blather.app
+        if: steps.signing.outputs.enabled == 'true'
+        run: |
+          xcrun stapler staple dist/Blather.app
+          xcrun stapler validate dist/Blather.app
+
+      - name: Build DMG
+        run: |
+          chmod +x scripts/build-dmg.sh
+          ./scripts/build-dmg.sh
+
+      - name: Notarize DMG
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          submit_output="$(xcrun notarytool submit dist/Blather.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait 2>&1)"
+          echo "$submit_output"
+
+          submission_id="$(echo "$submit_output" | grep -m1 'id:' | awk '{print $2}')"
+          status="$(echo "$submit_output" | grep 'status:' | tail -1 | awk '{print $2}')"
+          echo "DMG notarization status: $status"
+
+          if [[ "$status" != "Accepted" ]]; then
+            echo "DMG notarization was NOT accepted. Fetching log..." >&2
+            if [[ -n "$submission_id" ]]; then
+              xcrun notarytool log "$submission_id" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" >&2
+            fi
+            exit 1
+          fi
+
+          xcrun stapler staple dist/Blather.dmg
+
+      - name: Generate Sparkle appcast
+        if: steps.signing.outputs.enabled == 'true' && steps.sparkle.outputs.enabled == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          sparkle_dir="$RUNNER_TEMP/sparkle"
+          sparkle_zip="$RUNNER_TEMP/sparkle.zip"
+          curl -fsSL https://github.com/sparkle-project/Sparkle/releases/download/2.9.3/Sparkle-for-Swift-Package-Manager.zip -o "$sparkle_zip"
+          unzip -q "$sparkle_zip" -d "$sparkle_dir"
+
+          appcast_input="$RUNNER_TEMP/blather-appcast"
+          mkdir -p "$appcast_input"
+          cp dist/Blather.dmg "$appcast_input/Blather.dmg"
+
+          download_prefix="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | \
+            "$sparkle_dir/bin/generate_appcast" \
+              --ed-key-file - \
+              --download-url-prefix "$download_prefix" \
+              --maximum-versions 1 \
+              -o dist/appcast.xml \
+              "$appcast_input"
+
+      - name: Upload appcast artifact
+        if: steps.signing.outputs.enabled == 'true' && steps.sparkle.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: appcast.xml
+          path: dist/appcast.xml
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Blather.dmg
+          path: dist/Blather.dmg
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (full history for tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download DMG
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          name: Blather.dmg
+
+      - name: Download appcast
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          name: appcast.xml
+        continue-on-error: true
+
+      - name: List release files
+        run: ls -la release-assets/
+
+      - name: Build release notes from commits since previous tag
+        run: |
+          python3 - <<'PY'
+          import os
+          import subprocess
+
+          current_tag = os.environ.get("GITHUB_REF_NAME", "")
+
+          def git(*args: str) -> str:
+              return subprocess.check_output(["git", *args], text=True).strip()
+
+          all_tags_output = git("tag", "--sort=-creatordate")
+          all_tags = [tag for tag in all_tags_output.splitlines() if tag]
+          previous_tag = next((tag for tag in all_tags if tag != current_tag), "")
+
+          if previous_tag:
+              commit_lines = git(
+                  "log",
+                  f"{previous_tag}..{current_tag}",
+                  "--pretty=format:- %s (%h)",
+              )
+              heading = f"## Changes since {previous_tag}\n"
+              compare_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/compare/{previous_tag}...{current_tag}"
+              compare = f"\n[Full diff]({compare_url})\n"
+          else:
+              commit_lines = git(
+                  "log",
+                  current_tag,
+                  "--pretty=format:- %s (%h)",
+              )
+              heading = "## Changes in this release\n"
+              compare = ""
+
+          body = heading + "\n" + (commit_lines if commit_lines else "- No commit messages found.") + "\n" + compare
+
+          with open("release-notes.md", "w", encoding="utf-8") as f:
+              f.write(body)
+          PY
+
+      - name: Collect release files
+        id: release_files
+        run: |
+          files="release-assets/Blather.dmg"
+          if [[ -f release-assets/appcast.xml ]]; then
+            files="${files}"$'\n'"release-assets/appcast.xml"
+          fi
+          {
+            echo "files<<EOF"
+            printf '%s\n' "$files"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          generate_release_notes: true
+          files: ${{ steps.release_files.outputs.files }}
+
+  deploy_pages:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pages: write
+      actions: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Download appcast
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          name: appcast.xml
+        continue-on-error: true
+
+      - name: Stage Pages site
+        if: hashFiles('release-assets/appcast.xml') != ''
+        run: |
+          mkdir -p site
+          cp release-assets/appcast.xml site/appcast.xml
+          cat > site/index.html <<'HTML'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <title>Blather</title>
+          </head>
+          <body>
+            <p>Blather Sparkle appcast: <a href="./appcast.xml">appcast.xml</a></p>
+            <p>Releases: <a href="https://github.com/kshehadeh/blather/releases">GitHub Releases</a></p>
+          </body>
+          </html>
+          HTML
+
+      - name: Configure Pages
+        if: hashFiles('release-assets/appcast.xml') != ''
+        uses: actions/configure-pages@v5
+
+      - name: Delete stale Pages artifact
+        if: hashFiles('release-assets/appcast.xml') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          owner_repo="${GITHUB_REPOSITORY}"
+          run_id="${GITHUB_RUN_ID}"
+          ids="$(gh api -X GET \
+            "/repos/${owner_repo}/actions/runs/${run_id}/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name == "github-pages") | .id')"
+          for id in $ids; do
+            echo "Deleting stale github-pages artifact: ${id}"
+            gh api -X DELETE "/repos/${owner_repo}/actions/artifacts/${id}" || true
+          done
+
+      - name: Upload Pages appcast artifact
+        if: hashFiles('release-assets/appcast.xml') != ''
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+      - name: Deploy Pages appcast artifact
+        id: deployment
+        if: hashFiles('release-assets/appcast.xml') != ''
+        uses: actions/deploy-pages@v5

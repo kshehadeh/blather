@@ -92,7 +92,8 @@ Usage: bun run <script> [-- flags]
   sign              Sparkle-sign the DMG
   appcast           Insert a Sparkle appcast item
   github            Create the GitHub release with the DMG
-  release           archive → export → dmg → sign → appcast → git → gh
+  release           local fallback: archive → export → dmg → sign → appcast → git → gh
+                    Prefer: bun run release -- patch --ci (release-it + Actions)
   release:pack      dmg → sign → appcast → git → gh (app already exported)
 
 Flags

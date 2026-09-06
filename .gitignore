@@ -12,4 +12,5 @@ xcuserdata/
 *.dSYM
 .tmp/
 build/
-bun.lock
+dist/
+node_modules/
