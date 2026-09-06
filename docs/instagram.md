@@ -93,13 +93,13 @@ invitation alone is not enough.
 
 Meta may also display a general Meta **App ID** and **App Secret** under **App settings > Basic**.
 For this direct Instagram Login flow, use the Instagram credentials shown in the Instagram
-product setup. Keep the secret private and do not put it in `.env`.
+product setup. Keep the secret private.
 
 ## 6. Connect Instagram in Blather
 
 1. Keep Blather running.
-2. Open **Blather > Settings**.
-3. Find the **Instagram** card.
+2. Open **Blather > Settings…** (Cmd+,).
+3. Open the **Accounts** tab and find the **Instagram** section.
 4. Paste the Meta **App ID** and **App Secret**.
 5. Select **Connect**.
 6. In the system browser, sign in to the intended professional Instagram account and approve the

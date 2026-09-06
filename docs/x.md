@@ -62,14 +62,14 @@ The Client ID is different from the app's API Key, App ID, and bearer token.
 
 ## 4. Connect X in Blather
 
-1. Open **Blather > Settings**.
-2. Find the **X** card.
+1. Open **Blather > Settings…** (Cmd+,).
+2. Open the **Accounts** tab and find the **X** section.
 3. Paste the OAuth 2.0 **Client ID** into **Client ID**.
 4. Select **Connect**.
 5. Your system browser opens X. Sign in to the account that Blather should publish to and approve
    the requested access.
 6. Wait for the browser to show the completion message, then return to Blather.
-7. Confirm that the X card names the correct account and shows **connected**.
+7. Confirm that the X section names the correct account and shows **connected**.
 8. Select **Run health checks** and confirm that no X error appears.
 
 ## 5. Test publishing
@@ -110,7 +110,7 @@ check whether your X API plan permits the v2 media-upload endpoints.
 
 ### The browser cannot return to Blather
 
-Keep Blather running, make sure port `3000` is free, and resolve any local certificate warning as
+Keep Blather running, make sure port `3000` is free, and accept any local certificate warning as
 described in the [setup overview](README.md#before-setting-up-a-network).
 
 ## Official references

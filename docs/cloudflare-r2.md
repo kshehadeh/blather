@@ -86,8 +86,8 @@ API operations and is not a public bucket website.
 
 ## 5. Enter R2 settings in Blather
 
-1. Open **Blather > Settings**.
-2. Find **Cloudflare R2 staging**.
+1. Open **Blather > Settings…** (Cmd+,).
+2. Open the **Media Staging** tab.
 3. Enter the Cloudflare **Account ID**.
 4. Enter the exact **Bucket** name.
 5. Choose **Presigned URLs, bucket stays private** unless you intentionally configured a public

@@ -70,18 +70,18 @@ An invited role is only for development access. It is not a Threads follower or 
 3. Next to **App Secret**, select **Show**. Meta may ask for your password.
 4. Copy the revealed **App Secret**.
 
-Treat the App Secret like a password. Do not put it in `.env` or commit it to Git.
+Treat the App Secret like a password. Do not commit it to Git.
 
 ## 5. Connect Threads in Blather
 
 1. Keep Blather running.
-2. Open **Blather > Settings**.
-3. Find the **Threads** card.
+2. Open **Blather > Settings…** (Cmd+,).
+3. Open the **Accounts** tab and find the **Threads** section.
 4. Paste the Meta **App ID** and **App Secret**.
 5. Select **Connect**.
 6. In the system browser, sign in to the intended Threads account and approve both permissions.
 7. Wait for the completion message, then return to Blather.
-8. Confirm that the Threads card shows the correct account and shows **connected**.
+8. Confirm that the Threads section shows the correct account and shows **connected**.
 9. Select **Run health checks** and confirm that no Threads error appears.
 
 Blather exchanges the initial token for a longer-lived token and refreshes it before it expires.

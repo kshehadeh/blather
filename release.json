@@ -1,0 +1,10 @@
+{
+  "app_name": "Blather",
+  "github_repo": "kshehadeh/blather",
+  "git_branch": "main",
+  "min_system_version": "15.0",
+  "bundle_name": "Blather.app",
+  "dmg_name": "Blather.dmg",
+  "appcast_file": "appcast.xml",
+  "development_team": "SFK76D5YXM"
+}

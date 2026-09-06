@@ -1,0 +1,121 @@
+import Foundation
+
+enum PublishOrchestrator {
+    static let concurrency = 3
+
+    static func publishDraft(id draftId: String, database: AppDatabase) async throws -> [PublishAttempt] {
+        guard let draft = try database.drafts.get(draftId) else {
+            throw PublishError.draftNotFound
+        }
+        if draft.networks.isEmpty {
+            throw PublishError.noNetworks
+        }
+        let mediaItems = try database.media.byIds(allMediaIds(draft))
+        let mediaById = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.id, $0) })
+        let created = try draft.networks.map { network in
+            try database.attempts.create(draftId: draftId, network: network, textSnapshot: draft.text)
+        }
+        return await withTaskGroup(of: (Int, PublishAttempt).self) { group in
+            for (index, attempt) in created.enumerated() {
+                group.addTask {
+                    let result = await runAttempt(attempt, draft: draft, mediaById: mediaById, database: database)
+                    return (index, result)
+                }
+            }
+            var results = [PublishAttempt?](repeating: nil, count: created.count)
+            for await (index, result) in group {
+                results[index] = result
+            }
+            return results.compactMap { $0 }
+        }
+    }
+
+    static func retryAttempt(id attemptId: String, database: AppDatabase) async throws -> PublishAttempt {
+        guard let attempt = try database.attempts.get(attemptId) else {
+            throw PublishError.attemptNotFound
+        }
+        guard attempt.status == .failed else {
+            throw PublishError.retryOnlyFailed
+        }
+        guard let draft = try database.drafts.get(attempt.draftId) else {
+            throw PublishError.draftNotFound
+        }
+        let mediaItems = try database.media.byIds(allMediaIds(draft))
+        let mediaById = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.id, $0) })
+        return await runAttempt(attempt, draft: draft, mediaById: mediaById, database: database)
+    }
+
+    static func recoverInterrupted(database: AppDatabase) throws {
+        let stuck = try database.attempts.stuckPublishing()
+        for attempt in stuck {
+            try database.attempts.setStatus(
+                id: attempt.id,
+                status: .failed,
+                error: "interrupted: the app stopped while publishing; review and retry if needed"
+            )
+        }
+    }
+
+    private static func runAttempt(
+        _ attempt: PublishAttempt,
+        draft: Draft,
+        mediaById: [String: MediaItem],
+        database: AppDatabase
+    ) async -> PublishAttempt {
+        let adapter = AdapterRegistry.adapter(for: attempt.network, database: database)
+        try? database.attempts.setStatus(id: attempt.id, status: .publishing)
+        do {
+            let content = Overrides.resolveContent(
+                text: draft.text,
+                mediaIds: draft.mediaIds,
+                overrides: draft.overrides,
+                network: attempt.network,
+                mediaById: mediaById
+            )
+            try adapter.validate(content: content)
+            let context: any PublishContext = AdapterRegistry.useMocks
+                ? NullPublishContext(attemptId: attempt.id)
+                : R2PublishContext(attemptId: attempt.id, database: database)
+            let result = try await adapter.publish(content: content, context: context)
+            try database.attempts.setStatus(
+                id: attempt.id,
+                status: .success,
+                providerPostId: result.providerPostId,
+                providerPostUrl: result.providerPostUrl
+            )
+        } catch {
+            try? database.attempts.setStatus(
+                id: attempt.id,
+                status: .failed,
+                error: adapter.normalizeError(error)
+            )
+        }
+        return (try? database.attempts.get(attempt.id)) ?? attempt
+    }
+
+    private static func allMediaIds(_ draft: Draft) -> [String] {
+        var ids = Set(draft.mediaIds)
+        for override in draft.overrides.values {
+            for id in override.mediaIds ?? [] {
+                ids.insert(id)
+            }
+        }
+        return Array(ids)
+    }
+}
+
+enum PublishError: Error, LocalizedError, Equatable {
+    case draftNotFound
+    case attemptNotFound
+    case noNetworks
+    case retryOnlyFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .draftNotFound: "Draft not found"
+        case .attemptNotFound: "Attempt not found"
+        case .noNetworks: "No networks selected"
+        case .retryOnlyFailed: "Only failed attempts can be retried"
+        }
+    }
+}

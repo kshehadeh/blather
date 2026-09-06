@@ -1,49 +1,42 @@
 # Blather
 
 Compose once, publish to your own accounts on **X**, **Bluesky**, **Threads**, and
-**Instagram** — from a local-only macOS app. No hosted backend, no telemetry, no third-party
-aggregation API. Your provider credentials live in macOS Keychain; everything else lives in a
-local SQLite database.
+**Instagram** — from a local-only native macOS app. No hosted backend, no telemetry, no
+third-party aggregation API. Your provider credentials live in macOS Keychain; everything else
+lives in a local SQLite database.
 
 ## Requirements
 
-- macOS (credentials are stored via the Keychain `security` CLI)
-- [Bun](https://bun.sh) 1.3+ (used as the package manager and script runner)
-- Node.js 22+ (Next.js runtime; Bun manages it via your existing install)
-- [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert && mkcert -install`) —
-  used by Blather's local server to serve trusted HTTPS, which Meta requires for OAuth callbacks
+- macOS 15 or later
+- Xcode 16 or later (to build from source)
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 - Your own developer apps/accounts for each network you want to use (see below)
 - A Cloudflare R2 bucket if you want to publish media to Threads or Instagram
 
 ## Getting started
 
 ```sh
-bun install
 bun run dev
 ```
 
-This builds and opens the Electron app, which starts a local HTTPS server at
-`https://127.0.0.1:3000`. The Electron window is the supported application UI; do not use the
-local URL directly.
+That regenerates `Blather.xcodeproj` and opens it. Select the **Blather** scheme and press **Cmd+R**.
 
-The local certificate is issued by mkcert and stored in `certificates/`. If a system browser
-warns about the certificate during an OAuth connection, run `mkcert -install` once, then restart
-Blather. The callback origin and port are fixed, so port 3000 must be free.
-
-Go to **Settings**, connect the networks you want, configure R2 staging if you plan to post media
-to Threads/Instagram, then compose and publish. OAuth authorization opens in your system browser;
-return to Blather after the browser displays a completion message.
+Or from the command line:
 
 ```sh
-bun run build      # creates an unsigned DMG under release/
-bun run build:dir  # creates an unpacked .app for local testing
+bun run build
 ```
 
-The DMG is unsigned and may prompt for confirmation in macOS Gatekeeper. This first version is
-macOS-only because it uses the macOS Keychain `security` CLI.
+The Debug app is under Xcode DerivedData. [Bun](https://bun.sh) is only used for these repo scripts, not by the app itself.
 
-The embedded server binds to `127.0.0.1` only. Non-loopback Host headers and cross-site mutations
-are rejected regardless.
+Go to **Blather > Settings…** (Cmd+,), connect the networks you want, configure R2 staging if you
+plan to post media to Threads or Instagram, then compose and publish. OAuth authorization opens
+in your system browser; return to Blather after the browser displays a completion message.
+
+Keep Blather open while connecting an account. OAuth providers send the browser back to
+`https://127.0.0.1:3000`. Port 3000 must be free during that handshake. The first connection
+creates a local TLS certificate under `~/.blather/oauth-tls/`; the browser may warn once that the
+certificate is self-signed.
 
 ## Social network setup
 
@@ -70,70 +63,107 @@ Everything lives under the data directory (default `~/.blather`, override with
 | --- | --- |
 | Drafts, overrides, publish attempts, connection metadata, staging records | `~/.blather/blather.db` (SQLite, mode 0600) |
 | Uploaded source media | `~/.blather/media/` (dir mode 0700) |
+| Local OAuth TLS identity | `~/.blather/oauth-tls/` |
 | API secrets, OAuth tokens, app passwords, R2 keys | macOS Keychain, service prefix `com.blather.*` |
 
 SQLite stores only **opaque credential references**; resolving a reference requires the
 Keychain. Deleting the database does not leak secrets, and deleting Keychain entries
 (via Disconnect in Settings) does not touch your drafts.
 
-`.env.example` documents the only supported env vars — all non-secret. Secrets are
-entered through the Settings UI only.
+Secrets are entered through the Settings UI only.
 
 ## Security model and limitations
 
-- The server binds to loopback and rejects non-loopback Host headers.
-- Mutating API requests must be same-origin (Origin + Sec-Fetch-Site checks).
+- There is no hosted server. Outgoing HTTPS goes to X, Bluesky, Meta, and R2. Incoming HTTPS is
+  only the ephemeral OAuth callback listener on `127.0.0.1:3000`.
 - OAuth callbacks verify single-use state parameters (CSRF) and PKCE verifiers (X).
 - Logs and stored history errors are redacted: bearer tokens, `access_token` fields,
   client secrets, and signed staging URLs never persist.
-- Uploads are streamed to disk with explicit size caps (512 MB), never buffered whole.
+- Uploads are streamed to disk with an explicit 512 MB cap.
 - Publish attempts interrupted by a crash are marked `failed` at startup and never
   auto-retried (providers are not idempotent; retry manually from History after
   checking the network).
 - Retries are only possible for failed destinations, so a partial success can never
   duplicate an already-published post.
 
-**Limitations:** there is no authentication on the UI — it trusts the loopback boundary.
-Any process running as your user can read the database and request Keychain items. This
-is a single-user, single-machine tool; do not expose it beyond localhost.
+**Limitations:** this is a single-user, single-machine tool. Any process running as your user can
+read the database and request Keychain items.
 
 ## Development
 
 ```sh
-bun run lint         # Biome check
-bun run format       # Biome format --write
-bun run typecheck    # tsc --noEmit
-bun run test         # Vitest unit + integration
-bun run test:e2e     # Playwright (mock providers; no external calls)
-bun run build        # production build
+bun run generate   # xcodegen generate
+bun run build      # Debug build
+bun run test       # unit tests
+bun run keys       # Sparkle EdDSA keypair (once; private key stays in Keychain)
+bun run bump -- 0.2.0
 ```
 
-Tests use fakes selected by env vars (`BLATHER_KEYCHAIN=memory`, `BLATHER_R2=fake`,
-`BLATHER_MOCK_PROVIDERS=1`) so nothing external is contacted. Playwright launches Electron
-against mock provider adapters; Instagram's mock always fails so partial-failure and retry flows
-are exercised.
+Unit tests use an in-memory SQLite database and a memory Keychain.
+
+UI tests live in `BlatherUITests` and launch with `-mockProviders` so no external network is
+contacted. Instagram's mock always fails so partial-failure and retry flows are exercised. Run
+them from Xcode with **Product > Test** (a signing team is required for the UI test runner).
 
 **Real-network smoke tests are manual**: they require your developer apps, accounts,
 permissions, and R2 credentials. Connect in Settings, run the health checks, and publish
 a low-stakes post per network.
 
+## Release
+
+You need a **paid Apple Developer Program** membership and a **Developer ID Application**
+certificate (Apple Development is not enough — that is what causes `xcodebuild` export exit 70 /
+“No Team Found in Archive”). Create the cert in
+[Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/certificates/list),
+then Xcode → Settings → Accounts → Manage Certificates. Also:
+
+```sh
+brew install create-dmg gh
+gh auth login
+```
+
+Full pipeline (archive, notarize/export, DMG, Sparkle sign, appcast, git push, GitHub release):
+
+```sh
+bun run release -- --notes "Native macOS app; Sparkle updates"
+```
+
+If you already exported `Blather.app` from Xcode Organizer to `~/Downloads` or `build/export`:
+
+```sh
+bun run release:pack -- --notes "Bug fixes"
+```
+
+Individual steps:
+
+```sh
+bun run archive    # Release .xcarchive → build/Blather.xcarchive
+bun run export     # Developer ID export + staple → build/export/Blather.app
+bun run dmg        # build/Blather.dmg
+bun run sign       # Sparkle EdDSA signature
+bun run appcast -- --notes "What changed"
+bun run github -- --notes "What changed"
+```
+
+`--yes` skips the confirmation prompt. Debug builds skip Sparkle; ship only the exported Release app.
+
 ## Architecture
 
 ```
-src/
-  lib/            shared types + provider capability metadata (client-safe)
-  server/
-    db/           SQLite schema + repositories (no secrets)
-    keychain.ts   macOS Keychain via `security` CLI (in-memory for tests)
-    credentials.ts  opaque refs <-> Keychain blobs
-    providers/    adapter contract + x / bluesky / threads / instagram / mock
-    publish/      orchestrator (bounded concurrency), override resolution, recovery
-    r2.ts         staging, presigned/public URLs, orphan cleanup
-    security.ts   loopback + same-origin guards, redaction
-    oauth.ts      PKCE + single-use state
-  app/            App Router pages (composer, history, settings) + API routes
-tests/
-  unit/           validation, overrides, credentials, errors, adapters (mocked HTTP)
-  integration/    SQLite repos, OAuth state/PKCE, partial success + retry, R2 cleanup
-  e2e/            Playwright flows against mock providers
+Blather/
+  App/            SwiftUI app entry, menus, Sparkle updater
+  AppModel/       observable compose session and persistence wiring
+  Domain/         types, capabilities, validation, overrides
+  Persistence/    GRDB SQLite schema and repositories
+  Security/       Keychain + credential refs + redaction
+  Media/          NSOpenPanel, drag/drop, paste, thumbnails
+  Networking/     URLSession JSON client
+  OAuth/          PKCE, loopback HTTPS callback, connect flows
+  Providers/      X / Bluesky / Threads / Instagram / mock adapters
+  Publish/        orchestrator and crash recovery
+  R2/             SigV4 staging client
+  Views/          Compose, History, inspector
+  Settings/       Cmd+, window (Accounts, Media Staging, General, About)
+BlatherTests/     Swift Testing
+BlatherUITests/   XCUITest compose → publish → retry
 ```

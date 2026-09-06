@@ -17,13 +17,12 @@ requires media.
 ## Before setting up a network
 
 1. Install and start Blather by following the [main README](../README.md#getting-started).
-2. Confirm that the Blather Electron window opens. The supported interface is the app window,
-   not the local page opened directly in a browser.
+2. Confirm that the Blather window opens. Compose is the default view; Settings is **Cmd+,**.
 3. Keep Blather running while connecting an account. OAuth providers send your browser back to
    Blather at `https://127.0.0.1:3000`.
-4. If the browser warns that the local certificate is unsafe, quit Blather, run
-   `mkcert -install`, and start Blather again.
-5. Make sure no other program is using port `3000`.
+4. If the browser warns that the local certificate is unsafe, continue for this local address
+   (Blather generates a self-signed identity under `~/.blather/oauth-tls/` on first connect).
+5. Make sure no other program is using port `3000` while you connect.
 
 ## Terms used in these guides
 
@@ -45,9 +44,9 @@ requires media.
 
 ## Where secrets are stored
 
-Enter network credentials only in **Blather > Settings**. Blather stores secrets and access
-tokens in macOS Keychain. They do not belong in `.env`, and Blather does not store them in its
-SQLite database.
+Enter network credentials only in **Blather > Settings…** (Cmd+,). Blather stores secrets and
+access tokens in macOS Keychain. They do not belong in environment files, and Blather does not
+store them in its SQLite database.
 
 ## A note about provider screens
 

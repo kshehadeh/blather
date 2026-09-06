@@ -1,0 +1,22 @@
+{
+  "name": "blather",
+  "private": true,
+  "type": "module",
+  "description": "Build and release scripts for the native Blather macOS app",
+  "scripts": {
+    "generate": "bun scripts/blather.ts generate",
+    "dev": "bun scripts/blather.ts dev",
+    "build": "bun scripts/blather.ts build",
+    "test": "bun scripts/blather.ts test",
+    "keys": "bun scripts/blather.ts keys",
+    "bump": "bun scripts/blather.ts bump",
+    "archive": "bun scripts/blather.ts archive",
+    "export": "bun scripts/blather.ts export",
+    "dmg": "bun scripts/blather.ts dmg",
+    "sign": "bun scripts/blather.ts sign",
+    "appcast": "bun scripts/blather.ts appcast",
+    "github": "bun scripts/blather.ts github",
+    "release": "bun scripts/blather.ts release",
+    "release:pack": "bun scripts/blather.ts release --pack-only"
+  }
+}
