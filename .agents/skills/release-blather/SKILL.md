@@ -36,17 +36,12 @@ Expected assets:
 
 The DMG contains `Blather.app`. Sparkle publishes `appcast.xml` to GitHub Pages at `/appcast.xml` (`https://kshehadeh.github.io/blather/appcast.xml`).
 
-Signed browser-safe releases require these GitHub Actions secrets:
+Signed browser-safe releases require these GitHub Actions variables and secrets:
 
-- `CSC_LINK` — base64-encoded Developer ID Application `.p12`
-- `CSC_KEY_PASSWORD` — certificate export password
-- `APPLE_ID` — Apple Developer account email
-- `APPLE_APP_SPECIFIC_PASSWORD` — notarization app-specific password
-- `APPLE_TEAM_ID` — Apple Developer Team ID
-- `SPARKLE_PUBLIC_KEY` — public EdDSA key (must match `SUPublicEDKey`)
-- `SPARKLE_PRIVATE_KEY` — private EdDSA key used only in CI
+- Variables: `APPLE_ID`, `APPLE_TEAM_ID`
+- Secrets: `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_APP_SPECIFIC_PASSWORD`, `SPARKLE_PUBLIC_KEY`, `SPARKLE_PRIVATE_KEY`
 
-If any signing secret is missing, CI skips signing/notarization and uploads an unsigned DMG. Invalid non-empty credentials should fail the release.
+If any signing variable or secret is missing, CI skips signing/notarization and uploads an unsigned DMG. Invalid non-empty credentials should fail the release.
 
 Sparkle needs a publicly reachable `SUFeedURL`; this repo is public and Pages serves the appcast. See `docs/release.md`.
 

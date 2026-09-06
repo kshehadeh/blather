@@ -46,9 +46,9 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: |
           missing=()
           [ -n "$CSC_LINK" ] || missing+=("CSC_LINK")
@@ -61,7 +61,7 @@ jobs:
             echo "Signing and notarization are enabled."
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Skipping signing and notarization. Missing secrets: ${missing[*]}"
+            echo "::warning::Skipping signing and notarization. Missing: ${missing[*]}"
           fi
 
       - name: Check Sparkle configuration
@@ -100,7 +100,7 @@ jobs:
 
       - name: Build release app
         env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
           BLATHER_BUILD_NUMBER: ${{ github.run_number }}
           BLATHER_SIGNING: ${{ steps.signing.outputs.enabled == 'true' && 'true' || 'false' }}
         run: chmod +x scripts/build-release.sh && ./scripts/build-release.sh
@@ -112,9 +112,9 @@ jobs:
       - name: Notarize Blather.app
         if: steps.signing.outputs.enabled == 'true'
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: |
           ditto -c -k --keepParent dist/Blather.app dist/Blather.app.notary.zip
           submit_output="$(xcrun notarytool submit dist/Blather.app.notary.zip \
@@ -153,9 +153,9 @@ jobs:
       - name: Notarize DMG
         if: steps.signing.outputs.enabled == 'true'
         env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID: ${{ vars.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: |
           submit_output="$(xcrun notarytool submit dist/Blather.dmg \
             --apple-id "$APPLE_ID" \

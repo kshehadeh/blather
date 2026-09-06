@@ -29,19 +29,19 @@ Always include `--ci` when no human is at the terminal. `bun run release:dry -- 
 
 `CFBundleVersion` (Sparkle `sparkle:version`) is `github.run_number` for that Release workflow, so it always increases.
 
-## GitHub Actions secrets
+## GitHub Actions variables and secrets
 
-Signed, notarized, Sparkle-updating releases need the same secrets as Toby:
+Signed, notarized, Sparkle-updating releases need repository **variables** for non-secret identifiers and **secrets** for credentials:
 
-| Secret | Purpose |
-| --- | --- |
-| `CSC_LINK` | Base64-encoded Developer ID Application `.p12` |
-| `CSC_KEY_PASSWORD` | Password used when exporting that `.p12` |
-| `APPLE_ID` | Apple Developer account email |
-| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password for `notarytool` |
-| `APPLE_TEAM_ID` | Apple Developer Team ID (`SFK76D5YXM`) |
-| `SPARKLE_PUBLIC_KEY` | Public EdDSA key (must match `SUPublicEDKey` in `project.yml`) |
-| `SPARKLE_PRIVATE_KEY` | Private EdDSA key used only in CI by `generate_appcast` |
+| Kind | Name | Purpose |
+| --- | --- | --- |
+| Variable | `APPLE_ID` | Apple Developer account email |
+| Variable | `APPLE_TEAM_ID` | Apple Developer Team ID (`SFK76D5YXM`) |
+| Secret | `CSC_LINK` | Base64-encoded Developer ID Application `.p12` |
+| Secret | `CSC_KEY_PASSWORD` | Password used when exporting that `.p12` |
+| Secret | `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password for `notarytool` |
+| Secret | `SPARKLE_PUBLIC_KEY` | Public EdDSA key (must match `SUPublicEDKey` in `project.yml`) |
+| Secret | `SPARKLE_PRIVATE_KEY` | Private EdDSA key used only in CI by `generate_appcast` |
 
 Create `CSC_LINK` by base64-encoding the Developer ID Application `.p12`:
 
@@ -49,7 +49,7 @@ Create `CSC_LINK` by base64-encoding the Developer ID Application `.p12`:
 base64 -i /path/to/developer-id-application.p12 | tr -d '\n' | pbcopy
 ```
 
-If any Apple signing secret is missing, CI still builds and uploads an unsigned DMG with a warning. Invalid non-empty credentials fail the release. If Sparkle keys are missing, CI skips `appcast.xml`.
+If any Apple signing variable or secret is missing, CI still builds and uploads an unsigned DMG with a warning. Invalid non-empty credentials fail the release. If Sparkle keys are missing, CI skips `appcast.xml`.
 
 Sparkle keys are **not** the Developer ID certificate. Generate them once on a trusted Mac:
 
