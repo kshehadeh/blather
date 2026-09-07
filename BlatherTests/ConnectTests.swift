@@ -15,53 +15,57 @@ struct ConnectTests {
     @Test func oauthConnectionRoundTrip() throws {
         Keychain.store = MemoryKeychainStore()
         let db = try AppDatabase.inMemory()
-        try ConnectionStore.storeOAuth(
+        let account = try ConnectionStore.storeOAuth(
             network: .x,
             tokens: OAuthTokens(accessToken: "tok", refreshToken: "ref", expiresAt: 1, meta: ["clientId": "abc"]),
+            providerAccountId: "1",
             accountLabel: "@me",
             meta: ["userId": "1"],
             database: db
         )
-        let conn = try db.connections.get(.x)
+        let storedAccount = try db.connections.get(account.id)
+        let conn = try #require(storedAccount)
         #expect(conn.state == .connected)
         #expect(conn.accountLabel == "@me")
-        let tokens = TokenAccess.loadTokens(network: .x, database: db)
+        let tokens = TokenAccess.loadTokens(accountId: account.id, database: db)
         #expect(tokens?.accessToken == "tok")
         #expect(tokens?.meta?["clientId"] == "abc")
-        try ConnectionStore.disconnect(network: .x, database: db)
-        #expect(TokenAccess.loadTokens(network: .x, database: db) == nil)
-        #expect(try db.connections.get(.x).state == .disconnected)
+        try ConnectionStore.disconnect(accountId: account.id, database: db)
+        #expect(TokenAccess.loadTokens(accountId: account.id, database: db) == nil)
+        #expect(try db.connections.get(account.id)?.state == .disconnected)
     }
 
     @Test func connectedAccountExposesNonSecretSettings() throws {
         Keychain.store = MemoryKeychainStore()
         let db = try AppDatabase.inMemory()
-        try ConnectionStore.storeOAuth(
+        let threadsAccount = try ConnectionStore.storeOAuth(
             network: .threads,
             tokens: OAuthTokens(
                 accessToken: "tok",
                 meta: ["clientId": "app-id", "clientSecret": "shh", "userId": "1"]
             ),
+            providerAccountId: "1",
             accountLabel: "@foo",
             meta: ["userId": "1"],
             database: db
         )
-        let threads = AccountSettings.load(network: .threads, database: db)
+        let threads = AccountSettings.load(accountId: threadsAccount.id, database: db)
         #expect(threads.clientId == "app-id")
         #expect(threads.hasStoredSecret)
 
-        try ConnectionStore.storeBasic(
+        let blueskyAccount = try ConnectionStore.storeBasic(
             network: .bluesky,
             credentials: BasicCredentials(
                 identifier: "me.bsky.social",
                 secret: "app-pass",
                 meta: ["pds": "https://bsky.social", "did": "did:plc:1"]
             ),
+            providerAccountId: "did:plc:1",
             accountLabel: "@me.bsky.social",
             meta: ["pds": "https://bsky.social", "did": "did:plc:1"],
             database: db
         )
-        let bluesky = AccountSettings.load(network: .bluesky, database: db)
+        let bluesky = AccountSettings.load(accountId: blueskyAccount.id, database: db)
         #expect(bluesky.pds == "https://bsky.social")
         #expect(bluesky.handle == "me.bsky.social")
         #expect(bluesky.hasStoredSecret)
@@ -71,15 +75,16 @@ struct ConnectTests {
     @Test func blankSecretSaveIsNoOpAndKeepsKeychainItem() throws {
         Keychain.store = MemoryKeychainStore()
         let db = try AppDatabase.inMemory()
-        try ConnectionStore.storeOAuth(
+        let account = try ConnectionStore.storeOAuth(
             network: .x,
             tokens: OAuthTokens(accessToken: "tok", refreshToken: "ref", expiresAt: 1, meta: ["clientId": "abc"]),
+            providerAccountId: "1",
             accountLabel: "@me",
             meta: ["userId": "1"],
             database: db
         )
-        let ref = try db.connections.get(.x).credentialRef
-        let stored = AccountSettings.load(network: .x, database: db)
+        let ref = try db.connections.get(account.id)?.credentialRef
+        let stored = AccountSettings.load(accountId: account.id, database: db)
         let plan = AccountSettings.plan(
             network: .x,
             clientId: "abc",
@@ -92,8 +97,8 @@ struct ConnectTests {
             storedClientSecret: nil
         )
         #expect(plan == .noOp)
-        #expect(try db.connections.get(.x).credentialRef == ref)
-        #expect(TokenAccess.loadTokens(network: .x, database: db)?.accessToken == "tok")
+        #expect(try db.connections.get(account.id)?.credentialRef == ref)
+        #expect(TokenAccess.loadTokens(accountId: account.id, database: db)?.accessToken == "tok")
     }
 
     @Test func blueskyBlankPasswordReusesStoredSecretWhenFieldsChange() {
@@ -144,21 +149,59 @@ struct ConnectTests {
         #expect(plan == .reconnectThreads(clientId: "new-id", clientSecret: "stored-secret"))
     }
 
+    @Test func explicitReconnectReusesUnchangedStoredCredentials() {
+        let plan = AccountSettings.plan(
+            network: .bluesky,
+            clientId: "",
+            clientSecret: "",
+            pds: "https://bsky.social",
+            handle: "me.bsky.social",
+            appPassword: "",
+            stored: AccountConnectSettings(
+                pds: "https://bsky.social",
+                handle: "me.bsky.social",
+                hasStoredSecret: true
+            ),
+            storedAppPassword: "stored-password",
+            storedClientSecret: nil,
+            forceReconnect: true
+        )
+        #expect(
+            plan == .reconnectBluesky(
+                pds: "https://bsky.social",
+                handle: "me.bsky.social",
+                appPassword: "stored-password"
+            )
+        )
+    }
+
     @Test func disconnectDoesNotDeleteDraftsOrHistory() throws {
         Keychain.store = MemoryKeychainStore()
         let db = try AppDatabase.inMemory()
-        try ConnectionStore.storeOAuth(
+        let account = try ConnectionStore.storeOAuth(
             network: .x,
             tokens: OAuthTokens(accessToken: "tok", refreshToken: "ref", expiresAt: 1, meta: ["clientId": "abc"]),
+            providerAccountId: "1",
             accountLabel: "@me",
             meta: ["userId": "1"],
             database: db
         )
-        let draft = try db.drafts.create(text: "hello", mediaIds: [], networks: [.x], overrides: [:])
-        _ = try db.attempts.create(draftId: draft.id, network: .x, textSnapshot: "hello")
-        try ConnectionStore.disconnect(network: .x, database: db)
-        #expect(try db.connections.get(.x).state == .disconnected)
-        #expect(TokenAccess.loadTokens(network: .x, database: db) == nil)
+        let draft = try db.drafts.create(
+            text: "hello",
+            mediaIds: [],
+            accountIds: [account.id],
+            networks: [.x],
+            overrides: [:]
+        )
+        _ = try db.attempts.create(
+            draftId: draft.id,
+            network: .x,
+            accountId: account.id,
+            textSnapshot: "hello"
+        )
+        try ConnectionStore.disconnect(accountId: account.id, database: db)
+        #expect(try db.connections.get(account.id)?.state == .disconnected)
+        #expect(TokenAccess.loadTokens(accountId: account.id, database: db) == nil)
         #expect(try db.drafts.get(draft.id)?.text == "hello")
         #expect(try db.attempts.list().count == 1)
         #expect(try db.attempts.list().first?.network == .x)
@@ -167,27 +210,29 @@ struct ConnectTests {
     @Test @MainActor func saveAccountWithBlankSecretKeepsKeychainItem() throws {
         Keychain.store = MemoryKeychainStore()
         let db = try AppDatabase.inMemory()
-        try ConnectionStore.storeOAuth(
+        let account = try ConnectionStore.storeOAuth(
             network: .x,
             tokens: OAuthTokens(accessToken: "tok", refreshToken: "ref", expiresAt: 1, meta: ["clientId": "abc"]),
+            providerAccountId: "1",
             accountLabel: "@me",
             meta: ["userId": "1"],
             database: db
         )
-        let ref = try db.connections.get(.x).credentialRef
+        let ref = try db.connections.get(account.id)?.credentialRef
         let model = AppModel(database: db)
         model.saveAccount(
             network: .x,
+            accountId: account.id,
             clientId: "abc",
             clientSecret: "",
             pds: "",
             handle: "",
             appPassword: ""
         )
-        #expect(try db.connections.get(.x).credentialRef == ref)
-        #expect(TokenAccess.loadTokens(network: .x, database: db)?.accessToken == "tok")
+        #expect(try db.connections.get(account.id)?.credentialRef == ref)
+        #expect(TokenAccess.loadTokens(accountId: account.id, database: db)?.accessToken == "tok")
         #expect(model.statusMessage == "No changes to save")
-        #expect(model.connection(for: .x).state == .connected)
+        #expect(model.connection(accountId: account.id)?.state == .connected)
     }
 
     @Test func pendingConfigIsSingleUse() throws {
@@ -195,6 +240,117 @@ struct ConnectTests {
         try ConnectionStore.stashPending(state: "s1", config: ["clientId": "abc"])
         #expect(ConnectionStore.popPending(state: "s1")?["clientId"] == "abc")
         #expect(ConnectionStore.popPending(state: "s1") == nil)
+    }
+
+    @Test func duplicateIdentityUpdatesExistingAccount() throws {
+        Keychain.store = MemoryKeychainStore()
+        let db = try AppDatabase.inMemory()
+        let first = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(accessToken: "first", refreshToken: nil, expiresAt: nil, meta: nil),
+            providerAccountId: "same-user",
+            accountLabel: "@same",
+            database: db
+        )
+        let updated = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(accessToken: "second", refreshToken: nil, expiresAt: nil, meta: nil),
+            providerAccountId: "same-user",
+            accountLabel: "@same-new",
+            database: db
+        )
+        #expect(updated.id == first.id)
+        #expect(try db.connections.list(network: .x).count == 1)
+        #expect(TokenAccess.loadTokens(accountId: first.id, database: db)?.accessToken == "second")
+    }
+
+    @Test func reconnectRejectsDifferentIdentityWithoutReplacingCredentials() throws {
+        Keychain.store = MemoryKeychainStore()
+        let db = try AppDatabase.inMemory()
+        let account = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(accessToken: "original", refreshToken: nil, expiresAt: nil, meta: nil),
+            providerAccountId: "user-one",
+            accountLabel: "@one",
+            database: db
+        )
+        #expect(throws: ProviderError.self) {
+            try ConnectionStore.storeOAuth(
+                network: .x,
+                tokens: OAuthTokens(accessToken: "wrong", refreshToken: nil, expiresAt: nil, meta: nil),
+                providerAccountId: "user-two",
+                accountLabel: "@two",
+                expectedAccountId: account.id,
+                database: db
+            )
+        }
+        #expect(TokenAccess.loadTokens(accountId: account.id, database: db)?.accessToken == "original")
+        #expect(try db.connections.get(account.id)?.accountLabel == "@one")
+    }
+
+    @Test func removingOneAccountKeepsSiblingCredentials() throws {
+        Keychain.store = MemoryKeychainStore()
+        let db = try AppDatabase.inMemory()
+        let first = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(accessToken: "one", refreshToken: nil, expiresAt: nil, meta: nil),
+            providerAccountId: "one",
+            accountLabel: "@one",
+            database: db
+        )
+        let second = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(accessToken: "two", refreshToken: nil, expiresAt: nil, meta: nil),
+            providerAccountId: "two",
+            accountLabel: "@two",
+            database: db
+        )
+        try ConnectionStore.disconnect(accountId: first.id, database: db)
+        #expect(TokenAccess.loadTokens(accountId: first.id, database: db) == nil)
+        #expect(TokenAccess.loadTokens(accountId: second.id, database: db)?.accessToken == "two")
+        #expect(try db.connections.list(network: .x).map(\.id) == [second.id])
+        #expect(try db.connections.get(first.id)?.providerAccountId == "one")
+    }
+
+    @Test func tokenRefreshUpdatesOnlyItsAccount() async throws {
+        Keychain.store = MemoryKeychainStore()
+        let db = try AppDatabase.inMemory()
+        let first = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(
+                accessToken: "expired",
+                refreshToken: "refresh-one",
+                expiresAt: 0,
+                meta: ["clientId": "client-one"]
+            ),
+            providerAccountId: "one",
+            accountLabel: "@one",
+            database: db
+        )
+        let second = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(
+                accessToken: "second",
+                refreshToken: "refresh-two",
+                expiresAt: nil,
+                meta: ["clientId": "client-two"]
+            ),
+            providerAccountId: "two",
+            accountLabel: "@two",
+            database: db
+        )
+        let previousHTTP = ProviderHTTP.client
+        let client = MockHTTPClient([
+            .json(["access_token": "fresh", "refresh_token": "refresh-new", "expires_in": "7200"]),
+        ])
+        ProviderHTTP.client = client
+        defer { ProviderHTTP.client = previousHTTP }
+
+        try await XAdapter(accountId: first.id, database: db).refreshIfNeeded()
+
+        #expect(TokenAccess.loadTokens(accountId: first.id, database: db)?.accessToken == "fresh")
+        #expect(TokenAccess.loadTokens(accountId: second.id, database: db)?.accessToken == "second")
+        #expect(client.requests.first?.httpBody.flatMap { String(data: $0, encoding: .utf8) }?.contains("client-one") == true)
     }
 
     @Test func blueskyFacetsDetectLinksAndTags() {

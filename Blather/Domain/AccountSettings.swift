@@ -18,9 +18,11 @@ enum AccountSavePlan: Equatable, Sendable {
 enum AccountSettings {
     static let defaultPDS = "https://bsky.social"
 
-    static func load(network: Network, database: AppDatabase) -> AccountConnectSettings {
-        let conn = (try? database.connections.get(network))
-            ?? ConnectionInfo(network: network, state: .disconnected, meta: [:])
+    static func load(accountId: String, database: AppDatabase) -> AccountConnectSettings {
+        guard let conn = try? database.connections.get(accountId) else {
+            return AccountConnectSettings()
+        }
+        let network = conn.network
         switch network {
         case .bluesky:
             let creds = Credentials.read(BasicCredentials.self, ref: conn.credentialRef)
@@ -33,12 +35,18 @@ enum AccountSettings {
                 hasStoredSecret: !(creds?.secret ?? "").isEmpty
             )
         case .x, .threads, .instagram:
-            let tokens = TokenAccess.loadTokens(network: network, database: database)
+            let tokens = TokenAccess.loadTokens(accountId: accountId, database: database)
             return AccountConnectSettings(
                 clientId: tokens?.meta?["clientId"] ?? "",
                 hasStoredSecret: !(tokens?.accessToken ?? "").isEmpty
             )
         }
+    }
+
+    static func empty(network: Network) -> AccountConnectSettings {
+        network == .bluesky
+            ? AccountConnectSettings(pds: defaultPDS)
+            : AccountConnectSettings()
     }
 
     static func plan(
@@ -50,7 +58,8 @@ enum AccountSettings {
         appPassword: String,
         stored: AccountConnectSettings,
         storedAppPassword: String?,
-        storedClientSecret: String?
+        storedClientSecret: String?,
+        forceReconnect: Bool = false
     ) -> AccountSavePlan {
         let clientId = clientId.trimmingCharacters(in: .whitespacesAndNewlines)
         let clientSecret = clientSecret.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -59,23 +68,23 @@ enum AccountSettings {
 
         switch network {
         case .x:
-            if clientId.isEmpty || clientId == stored.clientId { return .noOp }
+            if clientId.isEmpty || (!forceReconnect && clientId == stored.clientId) { return .noOp }
             return .reconnectX(clientId: clientId)
         case .bluesky:
             let storedPDS = normalizePDS(stored.pds)
-            if handle == stored.handle, pds == storedPDS, appPassword.isEmpty {
+            if !forceReconnect, handle == stored.handle, pds == storedPDS, appPassword.isEmpty {
                 return .noOp
             }
             let password = appPassword.isEmpty ? (storedAppPassword ?? "") : appPassword
             if handle.isEmpty || password.isEmpty { return .noOp }
             return .reconnectBluesky(pds: pds, handle: handle, appPassword: password)
         case .threads:
-            if clientId == stored.clientId, clientSecret.isEmpty { return .noOp }
+            if !forceReconnect, clientId == stored.clientId, clientSecret.isEmpty { return .noOp }
             let secret = clientSecret.isEmpty ? (storedClientSecret ?? "") : clientSecret
             if clientId.isEmpty || secret.isEmpty { return .noOp }
             return .reconnectThreads(clientId: clientId, clientSecret: secret)
         case .instagram:
-            if clientId == stored.clientId, clientSecret.isEmpty { return .noOp }
+            if !forceReconnect, clientId == stored.clientId, clientSecret.isEmpty { return .noOp }
             let secret = clientSecret.isEmpty ? (storedClientSecret ?? "") : clientSecret
             if clientId.isEmpty || secret.isEmpty { return .noOp }
             return .reconnectInstagram(clientId: clientId, clientSecret: secret)

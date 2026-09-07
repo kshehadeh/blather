@@ -11,13 +11,24 @@ enum PublishOrchestrator {
         guard let draft = try database.drafts.get(draftId) else {
             throw PublishError.draftNotFound
         }
-        if draft.networks.isEmpty {
-            throw PublishError.noNetworks
+        if draft.accountIds.isEmpty {
+            throw PublishError.noAccounts
         }
         let mediaItems = try database.media.byIds(allMediaIds(draft))
         let mediaById = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.id, $0) })
-        let created = try draft.networks.map { network in
-            try database.attempts.create(draftId: draftId, network: network, textSnapshot: draft.text)
+        let accounts = try draft.accountIds.compactMap { try database.connections.get($0) }
+        guard accounts.count == draft.accountIds.count else {
+            throw PublishError.accountUnavailable
+        }
+        let accountsById = Dictionary(uniqueKeysWithValues: accounts.map { ($0.id, $0) })
+        let created = try accounts.map { account in
+            try database.attempts.create(
+                draftId: draftId,
+                network: account.network,
+                accountId: account.id,
+                accountLabelSnapshot: account.accountLabel,
+                textSnapshot: draft.text
+            )
         }
         for attempt in created {
             if let onUpdate {
@@ -25,10 +36,14 @@ enum PublishOrchestrator {
             }
         }
         return await withTaskGroup(of: (Int, PublishAttempt).self) { group in
-            for (index, attempt) in created.enumerated() {
+            var nextIndex = 0
+            while nextIndex < min(concurrency, created.count) {
+                let index = nextIndex
+                let attempt = created[index]
                 group.addTask {
                     let result = await runAttempt(
                         attempt,
+                        account: accountsById[attempt.accountId ?? ""],
                         draft: draft,
                         mediaById: mediaById,
                         database: database,
@@ -36,10 +51,27 @@ enum PublishOrchestrator {
                     )
                     return (index, result)
                 }
+                nextIndex += 1
             }
             var results = [PublishAttempt?](repeating: nil, count: created.count)
             for await (index, result) in group {
                 results[index] = result
+                if nextIndex < created.count {
+                    let newIndex = nextIndex
+                    let attempt = created[newIndex]
+                    group.addTask {
+                        let result = await runAttempt(
+                            attempt,
+                            account: accountsById[attempt.accountId ?? ""],
+                            draft: draft,
+                            mediaById: mediaById,
+                            database: database,
+                            onUpdate: onUpdate
+                        )
+                        return (newIndex, result)
+                    }
+                    nextIndex += 1
+                }
             }
             return results.compactMap { $0 }
         }
@@ -59,10 +91,17 @@ enum PublishOrchestrator {
         guard let draft = try database.drafts.get(attempt.draftId) else {
             throw PublishError.draftNotFound
         }
+        guard let accountId = attempt.accountId,
+              let account = try database.connections.get(accountId),
+              account.canPublish
+        else {
+            throw PublishError.accountUnavailable
+        }
         let mediaItems = try database.media.byIds(allMediaIds(draft))
         let mediaById = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.id, $0) })
         return await runAttempt(
             attempt,
+            account: account,
             draft: draft,
             mediaById: mediaById,
             database: database,
@@ -89,7 +128,11 @@ enum PublishOrchestrator {
         var changed = false
         for attempt in attempts where needsPermalinkBackfill(attempt) {
             guard let postId = attempt.providerPostId else { continue }
-            let adapter = AdapterRegistry.adapter(for: attempt.network, database: database)
+            guard let accountId = attempt.accountId,
+                  let account = try? database.connections.get(accountId),
+                  account.canPublish
+            else { continue }
+            let adapter = AdapterRegistry.adapter(for: account, database: database)
             guard adapter.isConnected() else { continue }
             guard let permalink = await adapter.lookupPermalink(mediaId: postId), !permalink.isEmpty else {
                 continue
@@ -114,14 +157,23 @@ enum PublishOrchestrator {
 
     private static func runAttempt(
         _ attempt: PublishAttempt,
+        account: ConnectionInfo?,
         draft: Draft,
         mediaById: [String: MediaItem],
         database: AppDatabase,
         onUpdate: (@MainActor @Sendable (PublishAttempt) -> Void)? = nil
     ) async -> PublishAttempt {
-        let adapter = AdapterRegistry.adapter(for: attempt.network, database: database)
         try? database.attempts.setStatus(id: attempt.id, status: .publishing)
         await report(attempt.id, database: database, fallback: attempt, onUpdate: onUpdate)
+        guard let account, account.canPublish else {
+            try? database.attempts.setStatus(
+                id: attempt.id,
+                status: .failed,
+                error: "account unavailable: reconnect or select another account"
+            )
+            return await report(attempt.id, database: database, fallback: attempt, onUpdate: onUpdate)
+        }
+        let adapter = AdapterRegistry.adapter(for: account, database: database)
         do {
             let content = Overrides.resolveContent(
                 text: draft.text,
@@ -179,14 +231,16 @@ enum PublishOrchestrator {
 enum PublishError: Error, LocalizedError, Equatable {
     case draftNotFound
     case attemptNotFound
-    case noNetworks
+    case noAccounts
+    case accountUnavailable
     case retryOnlyFailed
 
     var errorDescription: String? {
         switch self {
         case .draftNotFound: "Draft not found"
         case .attemptNotFound: "Attempt not found"
-        case .noNetworks: "No networks selected"
+        case .noAccounts: "No accounts selected"
+        case .accountUnavailable: "The selected account is unavailable. Reconnect it or select another account."
         case .retryOnlyFailed: "Only failed attempts can be retried"
         }
     }

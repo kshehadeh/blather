@@ -26,10 +26,11 @@ struct SmokeTests {
         session.text = ""
         #expect(!session.hasChanges)
 
-        session.networks = [.x]
+        let x = ConnectionInfo(id: "x-1", network: .x, state: .connected, meta: [:])
+        session.setAccount(x, enabled: true)
         #expect(session.hasChanges)
 
-        session.networks = []
+        session.setAccount(x, enabled: false)
         session.overrides[.x] = NetworkOverride(text: "override", mediaIds: nil)
         #expect(session.hasChanges)
 
@@ -41,10 +42,12 @@ struct SmokeTests {
     @Test @MainActor func discardDraftClearsComposerChanges() throws {
         let db = try AppDatabase.inMemory()
         let model = AppModel(database: db)
+        let x = try makeTestAccount(db, network: .x)
+        model.reload()
         #expect(!model.session.hasChanges)
 
         model.session.text = "hello"
-        model.session.networks = [.x]
+        model.session.setAccount(x, enabled: true)
         model.saveDraft()
         #expect(model.session.hasChanges)
         #expect(model.session.draftId != nil)
@@ -58,7 +61,6 @@ struct SmokeTests {
     @Test func draftSessionWarnsOnOverLimit() {
         let session = DraftSession()
         session.text = String(repeating: "x", count: 281)
-        session.networks = [.x]
         let warnings = session.warnings(for: .x)
         #expect(warnings.contains { $0.contains("over limit") })
     }
@@ -66,18 +68,20 @@ struct SmokeTests {
     @Test func draftSessionHidesOverridesWhenOnlyOneDestination() {
         let session = DraftSession()
         session.text = "shared"
-        session.setNetwork(.x, enabled: true)
+        let x = ConnectionInfo(id: "x-1", network: .x, state: .connected, meta: [:])
+        let bluesky = ConnectionInfo(id: "b-1", network: .bluesky, state: .connected, meta: [:])
+        session.setAccount(x, enabled: true)
         session.overrides[.x] = NetworkOverride(text: "x only", mediaIds: nil)
         #expect(!session.showsDestinationOverrides)
         #expect(session.resolvedContent(for: .x).text == "shared")
 
-        session.setNetwork(.bluesky, enabled: true)
+        session.setAccount(bluesky, enabled: true)
         session.overrides[.x] = NetworkOverride(text: "x only", mediaIds: nil)
         #expect(session.showsDestinationOverrides)
         #expect(session.resolvedContent(for: .x).text == "x only")
         #expect(session.resolvedContent(for: .bluesky).text == "shared")
 
-        session.setNetwork(.bluesky, enabled: false)
+        session.setAccount(bluesky, enabled: false)
         #expect(!session.showsDestinationOverrides)
         #expect(session.overrides.isEmpty)
         #expect(session.resolvedContent(for: .x).text == "shared")
@@ -88,12 +92,14 @@ struct SmokeTests {
             id: "d1",
             text: "shared",
             mediaIds: [],
+            accountIds: ["x-1"],
             networks: [.x],
             overrides: [.x: NetworkOverride(text: "x only", mediaIds: nil)],
             createdAt: "",
             updatedAt: ""
         )
-        let session = DraftSession(draft: draft, media: [])
+        let account = ConnectionInfo(id: "x-1", network: .x, state: .connected, meta: [:])
+        let session = DraftSession(draft: draft, media: [], accounts: [account])
         #expect(!session.showsDestinationOverrides)
         #expect(session.overrides.isEmpty)
         #expect(session.resolvedContent(for: .x).text == "shared")

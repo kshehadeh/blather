@@ -29,7 +29,7 @@ bun run build
 
 The Debug app is under Xcode DerivedData. [Bun](https://bun.sh) is only used for these repo scripts, not by the app itself.
 
-Go to **Blather > Settings…** (Cmd+,), connect the networks you want, configure R2 staging if you
+Go to **Blather > Settings…** (Cmd+,), connect the accounts you want, configure R2 staging if you
 plan to post media to Threads or Instagram, then compose and publish. OAuth authorization opens
 in your system browser; return to Blather after the browser displays a completion message.
 
@@ -40,8 +40,8 @@ certificate is self-signed.
 
 ## Social network setup
 
-Blather talks directly to each provider's native API. One account per network is supported, and
-you only need to configure the networks you use.
+Blather talks directly to each provider's native API. You can connect multiple accounts on each
+network and select any combination of accounts for a post.
 
 Begin with the [social network setup overview](docs/README.md), then follow the separate guide for
 each network:
@@ -64,7 +64,7 @@ Everything lives under the data directory (default `~/.blather`, override with
 | Drafts, overrides, publish attempts, connection metadata, staging records | `~/.blather/blather.db` (SQLite, mode 0600) |
 | Uploaded source media | `~/.blather/media/` (dir mode 0700) |
 | Local OAuth TLS identity | `~/.blather/oauth-tls/` |
-| API secrets, OAuth tokens, app passwords, R2 keys | macOS Keychain, service prefix `com.blather.*` |
+| API secrets, per-account OAuth tokens, app passwords, R2 keys | macOS Keychain, service prefix `com.blather.*` |
 
 SQLite stores only **opaque credential references**; resolving a reference requires the
 Keychain. Deleting the database does not leak secrets, and deleting Keychain entries
@@ -85,6 +85,8 @@ Secrets are entered through the Settings UI only.
   checking the network).
 - Retries are only possible for failed destinations, so a partial success can never
   duplicate an already-published post.
+- Each retry remains tied to the original account. Blather never substitutes another account on
+  the same network.
 
 **Limitations:** this is a single-user, single-machine tool. Any process running as your user can
 read the database and request Keychain items.

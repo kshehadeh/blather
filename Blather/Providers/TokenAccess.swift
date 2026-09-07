@@ -1,21 +1,27 @@
 import Foundation
 
 enum TokenAccess {
-    static func loadTokens(network: Network, database: AppDatabase) -> OAuthTokens? {
-        let conn = (try? database.connections.get(network)) ?? ConnectionInfo(network: network, state: .disconnected, meta: [:])
+    static func loadTokens(accountId: String, database: AppDatabase) -> OAuthTokens? {
+        guard let conn = try? database.connections.get(accountId) else { return nil }
         return Credentials.read(OAuthTokens.self, ref: conn.credentialRef)
     }
 
-    static func saveTokens(network: Network, tokens: OAuthTokens, database: AppDatabase) throws {
-        let conn = try database.connections.get(network)
-        guard let ref = conn.credentialRef else {
-            throw ProviderError(network: network, "\(network.rawValue): no credential reference stored")
+    static func saveTokens(
+        accountId: String,
+        network: Network,
+        tokens: OAuthTokens,
+        database: AppDatabase
+    ) throws {
+        guard let conn = try database.connections.get(accountId),
+              let ref = conn.credentialRef
+        else {
+            throw ProviderError(network: network, "\(network.rawValue): account credentials are unavailable")
         }
         try Credentials.store(ref, value: tokens)
     }
 
-    static func requireTokens(network: Network, database: AppDatabase) throws -> OAuthTokens {
-        guard let tokens = loadTokens(network: network, database: database), !tokens.accessToken.isEmpty else {
+    static func requireTokens(accountId: String, network: Network, database: AppDatabase) throws -> OAuthTokens {
+        guard let tokens = loadTokens(accountId: accountId, database: database), !tokens.accessToken.isEmpty else {
             throw ProviderError(network: network, "\(network.rawValue): not connected")
         }
         return tokens

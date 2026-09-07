@@ -64,13 +64,15 @@ The Client ID is different from the app's API Key, App ID, and bearer token.
 
 1. Open **Blather > Settings…** (Cmd+,).
 2. Open the **Accounts** tab and find the **X** section.
-3. Paste the OAuth 2.0 **Client ID** into **Client ID**.
-4. Select **Connect**.
+3. Select **Add Account…**.
+4. Paste the OAuth 2.0 **Client ID** into **Client ID**, then select **Connect Account**.
 5. Your system browser opens X. Sign in to the account that Blather should publish to and approve
    the requested access.
 6. Wait for the browser to show the completion message, then return to Blather.
 7. Confirm that the X section names the correct account and shows **connected**.
 8. Select **Run health checks** and confirm that no X error appears.
+
+Repeat **Add Account…** while signed into each additional X identity you want to use.
 
 ## 5. Test publishing
 

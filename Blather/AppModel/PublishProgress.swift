@@ -2,7 +2,8 @@ import Foundation
 import Observation
 
 struct PublishProgressItem: Identifiable, Hashable, Sendable {
-    var id: Network { network }
+    var id: String { accountId }
+    var accountId: String
     var network: Network
     var accountLabel: String?
     var status: AttemptStatus
@@ -17,11 +18,12 @@ final class PublishProgress: Identifiable {
     var isFinished = false
     var overallError: String?
 
-    init(networks: [Network], accountLabels: [Network: String] = [:]) {
-        items = networks.map { network in
+    init(accounts: [ConnectionInfo]) {
+        items = accounts.map { account in
             PublishProgressItem(
-                network: network,
-                accountLabel: accountLabels[network],
+                accountId: account.id,
+                network: account.network,
+                accountLabel: account.accountLabel,
                 status: .publishing,
                 error: nil
             )
@@ -55,7 +57,10 @@ final class PublishProgress: Identifiable {
     }
 
     func update(_ attempt: PublishAttempt) {
-        guard let index = items.firstIndex(where: { $0.network == attempt.network }) else { return }
+        let index = attempt.accountId.flatMap { accountId in
+            items.firstIndex { $0.accountId == accountId }
+        } ?? items.firstIndex { $0.network == attempt.network }
+        guard let index else { return }
         items[index].status = attempt.status
         items[index].error = attempt.error
     }

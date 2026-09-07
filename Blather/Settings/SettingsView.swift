@@ -35,17 +35,20 @@ final class SettingsNavigation {
 
     var selectedTab: SettingsTab? = .accounts
     private(set) var focusedNetwork: Network?
+    private(set) var focusedAccountId: String?
     private(set) var focusGeneration: UInt = 0
 
     private init() {}
 
-    func focusAccount(_ network: Network) {
+    func focusAccount(_ network: Network, accountId: String? = nil) {
         focusedNetwork = network
+        focusedAccountId = accountId
         focusGeneration += 1
     }
 
     func clearAccountFocus() {
         focusedNetwork = nil
+        focusedAccountId = nil
     }
 }
 

@@ -80,7 +80,7 @@ private struct PublishProgressRow: View {
         }
         .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("publish-progress-\(item.network.rawValue)")
+        .accessibilityIdentifier("publish-progress-\(item.accountId)")
         .accessibilityLabel(accessibilityLabel)
     }
 

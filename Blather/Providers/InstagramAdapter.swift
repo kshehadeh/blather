@@ -1,17 +1,18 @@
 import Foundation
 
 struct InstagramAdapter: ProviderAdapter {
+    let accountId: String
     let database: AppDatabase
     var network: Network { .instagram }
 
     private let graph = "https://graph.instagram.com/v21.0"
 
     func isConnected() -> Bool {
-        TokenAccess.loadTokens(network: .instagram, database: database)?.accessToken.isEmpty == false
+        TokenAccess.loadTokens(accountId: accountId, database: database)?.accessToken.isEmpty == false
     }
 
     func refreshIfNeeded() async throws {
-        let tokens = TokenAccess.loadTokens(network: .instagram, database: database)
+        let tokens = TokenAccess.loadTokens(accountId: accountId, database: database)
         guard let tokens, TokenAccess.tokenExpiringSoon(tokens, skewMs: 24 * 60 * 60 * 1000) else { return }
         let url = URL(string: "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=\(tokens.accessToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!
         let res = try await ProviderHTTP.fetchJSON(network: .instagram, url: url)
@@ -21,7 +22,7 @@ struct InstagramAdapter: ProviderAdapter {
             if let expires = JSONValue.string(res, "expires_in"), let seconds = Double(expires) {
                 next.expiresAt = Date().timeIntervalSince1970 * 1000 + seconds * 1000
             }
-            try TokenAccess.saveTokens(network: .instagram, tokens: next, database: database)
+            try TokenAccess.saveTokens(accountId: accountId, network: .instagram, tokens: next, database: database)
         }
     }
 
@@ -42,7 +43,7 @@ struct InstagramAdapter: ProviderAdapter {
 
     func publish(content: ResolvedContent, context: any PublishContext) async throws -> PublishResult {
         try await refreshIfNeeded()
-        let tokens = try TokenAccess.requireTokens(network: .instagram, database: database)
+        let tokens = try TokenAccess.requireTokens(accountId: accountId, network: .instagram, database: database)
         guard let igUserId = tokens.meta?["igUserId"], !igUserId.isEmpty else {
             throw ProviderError(network: .instagram, "instagram: missing user id; reconnect")
         }
@@ -80,7 +81,7 @@ struct InstagramAdapter: ProviderAdapter {
 
     func lookupPermalink(mediaId: String) async -> String? {
         try? await refreshIfNeeded()
-        guard let tokens = TokenAccess.loadTokens(network: .instagram, database: database),
+        guard let tokens = TokenAccess.loadTokens(accountId: accountId, database: database),
               !tokens.accessToken.isEmpty
         else { return nil }
         return await GraphPermalink.fetch(
@@ -99,14 +100,16 @@ struct InstagramAdapter: ProviderAdapter {
     func health() async -> HealthResult {
         do {
             try await refreshIfNeeded()
-            let tokens = try TokenAccess.requireTokens(network: .instagram, database: database)
+            let tokens = try TokenAccess.requireTokens(accountId: accountId, network: .instagram, database: database)
             let res = try await ProviderHTTP.fetchJSON(
                 network: .instagram,
                 url: URL(string: "\(graph)/me?fields=user_id,username,account_type&access_token=\(tokens.accessToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!
             )
             let username = JSONValue.string(res, "username")
+            let userId = JSONValue.string(res, "user_id")
             let accountType = JSONValue.string(res, "account_type")
             var meta: [String: String] = [:]
+            if let userId { meta["igUserId"] = userId }
             if let accountType { meta["accountType"] = accountType }
             let normalized = accountType?.uppercased()
             let isProfessional = normalized == nil

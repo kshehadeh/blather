@@ -1,6 +1,7 @@
 import Foundation
 
 struct XAdapter: ProviderAdapter {
+    let accountId: String
     let database: AppDatabase
     var network: Network { .x }
 
@@ -8,11 +9,11 @@ struct XAdapter: ProviderAdapter {
     private let chunkSize = 4 * 1024 * 1024
 
     func isConnected() -> Bool {
-        TokenAccess.loadTokens(network: .x, database: database)?.accessToken.isEmpty == false
+        TokenAccess.loadTokens(accountId: accountId, database: database)?.accessToken.isEmpty == false
     }
 
     func refreshIfNeeded() async throws {
-        let tokens = TokenAccess.loadTokens(network: .x, database: database)
+        let tokens = TokenAccess.loadTokens(accountId: accountId, database: database)
         guard let tokens, let refresh = tokens.refreshToken, TokenAccess.tokenExpiringSoon(tokens) else { return }
         guard let clientId = tokens.meta?["clientId"] else {
             throw ProviderError(network: .x, "x: missing client id for token refresh")
@@ -34,7 +35,7 @@ struct XAdapter: ProviderAdapter {
         if let expires = JSONValue.string(body, "expires_in"), let seconds = Double(expires) {
             next.expiresAt = Date().timeIntervalSince1970 * 1000 + seconds * 1000
         }
-        try TokenAccess.saveTokens(network: .x, tokens: next, database: database)
+        try TokenAccess.saveTokens(accountId: accountId, network: .x, tokens: next, database: database)
     }
 
     func validate(content: ResolvedContent) throws {
@@ -43,7 +44,7 @@ struct XAdapter: ProviderAdapter {
 
     func publish(content: ResolvedContent, context: any PublishContext) async throws -> PublishResult {
         try await refreshIfNeeded()
-        let tokens = try TokenAccess.requireTokens(network: .x, database: database)
+        let tokens = try TokenAccess.requireTokens(accountId: accountId, network: .x, database: database)
         let auth = ["Authorization": "Bearer \(tokens.accessToken)"]
         var mediaIds: [String] = []
         for item in content.media {
@@ -81,7 +82,7 @@ struct XAdapter: ProviderAdapter {
     func health() async -> HealthResult {
         do {
             try await refreshIfNeeded()
-            let tokens = try TokenAccess.requireTokens(network: .x, database: database)
+            let tokens = try TokenAccess.requireTokens(accountId: accountId, network: .x, database: database)
             let res = try await ProviderHTTP.fetchJSON(
                 network: .x,
                 url: api.appendingPathComponent("2/users/me"),

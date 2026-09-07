@@ -42,18 +42,28 @@ enum AdapterRegistry {
         return Set(raw.split(separator: ",").compactMap { Network(rawValue: String($0)) })
     }()
 
-    static func adapter(for network: Network, database: AppDatabase) -> any ProviderAdapter {
-        if useMocks { return MockAdapter(network: network) }
+    static var mockFailAccountIds: Set<String> = {
+        let raw = ProcessInfo.processInfo.environment["BLATHER_MOCK_FAIL_ACCOUNTS"] ?? ""
+        return Set(raw.split(separator: ",").map(String.init))
+    }()
+
+    static func adapter(for account: ConnectionInfo, database: AppDatabase) -> any ProviderAdapter {
+        adapter(for: account.id, network: account.network, database: database)
+    }
+
+    static func adapter(for accountId: String, network: Network, database: AppDatabase) -> any ProviderAdapter {
+        if useMocks { return MockAdapter(accountId: accountId, network: network) }
         switch network {
-        case .x: return XAdapter(database: database)
-        case .bluesky: return BlueskyAdapter(database: database)
-        case .threads: return ThreadsAdapter(database: database)
-        case .instagram: return InstagramAdapter(database: database)
+        case .x: return XAdapter(accountId: accountId, database: database)
+        case .bluesky: return BlueskyAdapter(accountId: accountId, database: database)
+        case .threads: return ThreadsAdapter(accountId: accountId, database: database)
+        case .instagram: return InstagramAdapter(accountId: accountId, database: database)
         }
     }
 }
 
 struct MockAdapter: ProviderAdapter {
+    let accountId: String
     let network: Network
 
     func isConnected() -> Bool { true }
@@ -66,10 +76,10 @@ struct MockAdapter: ProviderAdapter {
 
     func publish(content: ResolvedContent, context: any PublishContext) async throws -> PublishResult {
         try ContentValidation.validate(network, content: content)
-        if AdapterRegistry.mockFail.contains(network) {
+        if AdapterRegistry.mockFail.contains(network) || AdapterRegistry.mockFailAccountIds.contains(accountId) {
             throw ProviderError(network: network, "mock \(network.rawValue) publish failure")
         }
-        let id = "mock-\(network.rawValue)-\(Int(Date().timeIntervalSince1970 * 1000))"
+        let id = "mock-\(accountId)-\(Int(Date().timeIntervalSince1970 * 1000))"
         return PublishResult(
             providerPostId: id,
             providerPostUrl: "https://mock.local/\(network.rawValue)/\(id)"

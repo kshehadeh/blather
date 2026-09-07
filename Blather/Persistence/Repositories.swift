@@ -4,19 +4,26 @@ import GRDB
 struct DraftsRepository: Sendable {
     let dbQueue: DatabaseQueue
 
-    func create(text: String, mediaIds: [String], networks: [Network], overrides: [Network: NetworkOverride]) throws -> Draft {
+    func create(
+        text: String,
+        mediaIds: [String],
+        accountIds: [String],
+        networks: [Network],
+        overrides: [Network: NetworkOverride]
+    ) throws -> Draft {
         let ts = Time.now()
         let id = Time.newId()
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO drafts (id, text, media_ids, networks, overrides, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO drafts (id, text, media_ids, account_ids, networks, overrides, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 arguments: [
                     id,
                     text,
                     JSONCodec.encode(mediaIds),
+                    JSONCodec.encode(accountIds),
                     JSONCodec.encode(networks.map(\.rawValue)),
                     JSONCodec.encodeOverrides(overrides),
                     ts,
@@ -28,6 +35,7 @@ struct DraftsRepository: Sendable {
             id: id,
             text: text,
             mediaIds: mediaIds,
+            accountIds: accountIds,
             networks: networks,
             overrides: overrides,
             createdAt: ts,
@@ -39,24 +47,28 @@ struct DraftsRepository: Sendable {
         id: String,
         text: String? = nil,
         mediaIds: [String]? = nil,
+        accountIds: [String]? = nil,
         networks: [Network]? = nil,
         overrides: [Network: NetworkOverride]? = nil
     ) throws -> Draft? {
         guard var existing = try get(id) else { return nil }
         if let text { existing.text = text }
         if let mediaIds { existing.mediaIds = mediaIds }
+        if let accountIds { existing.accountIds = accountIds }
         if let networks { existing.networks = networks }
         if let overrides { existing.overrides = overrides }
         existing.updatedAt = Time.now()
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                UPDATE drafts SET text = ?, media_ids = ?, networks = ?, overrides = ?, updated_at = ?
+                UPDATE drafts
+                SET text = ?, media_ids = ?, account_ids = ?, networks = ?, overrides = ?, updated_at = ?
                 WHERE id = ?
                 """,
                 arguments: [
                     existing.text,
                     JSONCodec.encode(existing.mediaIds),
+                    JSONCodec.encode(existing.accountIds),
                     JSONCodec.encode(existing.networks.map(\.rawValue)),
                     JSONCodec.encodeOverrides(existing.overrides),
                     existing.updatedAt,
@@ -91,6 +103,7 @@ struct DraftsRepository: Sendable {
             id: row["id"],
             text: row["text"],
             mediaIds: JSONCodec.decode([String].self, from: row["media_ids"]),
+            accountIds: JSONCodec.decode([String].self, from: row["account_ids"]),
             networks: networkIds.compactMap(Network.init(rawValue:)),
             overrides: JSONCodec.decodeOverrides(row["overrides"]),
             createdAt: row["created_at"],
@@ -102,17 +115,32 @@ struct DraftsRepository: Sendable {
 struct AttemptsRepository: Sendable {
     let dbQueue: DatabaseQueue
 
-    func create(draftId: String, network: Network, textSnapshot: String = "") throws -> PublishAttempt {
+    func create(
+        draftId: String,
+        network: Network,
+        accountId: String,
+        accountLabelSnapshot: String? = nil,
+        textSnapshot: String = ""
+    ) throws -> PublishAttempt {
         let ts = Time.now()
         let id = Time.newId()
         try dbQueue.write { db in
             try db.execute(
                 sql: """
                 INSERT INTO publish_attempts
-                  (id, draft_id, network, status, text_snapshot, created_at, updated_at)
-                VALUES (?, ?, ?, 'pending', ?, ?, ?)
+                  (id, draft_id, network, account_id, account_label_snapshot, status, text_snapshot, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)
                 """,
-                arguments: [id, draftId, network.rawValue, textSnapshot, ts, ts]
+                arguments: [
+                    id,
+                    draftId,
+                    network.rawValue,
+                    accountId,
+                    accountLabelSnapshot,
+                    textSnapshot,
+                    ts,
+                    ts,
+                ]
             )
         }
         return try get(id)!
@@ -180,6 +208,8 @@ struct AttemptsRepository: Sendable {
             id: row["id"],
             draftId: row["draft_id"],
             network: Network(rawValue: row["network"]) ?? .x,
+            accountId: row["account_id"],
+            accountLabelSnapshot: row["account_label_snapshot"],
             status: AttemptStatus(rawValue: row["status"]) ?? .pending,
             providerPostId: row["provider_post_id"],
             providerPostUrl: row["provider_post_url"],
@@ -195,72 +225,118 @@ struct ConnectionsRepository: Sendable {
     let dbQueue: DatabaseQueue
 
     func upsert(
+        accountId: String,
         network: Network,
+        providerAccountId: String? = nil,
         state: ConnectionState,
         credentialRef: String? = nil,
         accountLabel: String? = nil,
         meta: [String: String] = [:],
-        error: String? = nil
+        error: String? = nil,
+        isRemoved: Bool = false
     ) throws {
         try dbQueue.write { db in
             try db.execute(
                 sql: """
-                INSERT INTO connections (network, state, credential_ref, account_label, meta, error, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(network) DO UPDATE SET
+                INSERT INTO social_accounts
+                  (id, network, provider_account_id, state, credential_ref, account_label, meta, error, is_removed, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  network = excluded.network,
+                  provider_account_id = COALESCE(excluded.provider_account_id, social_accounts.provider_account_id),
                   state = excluded.state,
-                  credential_ref = COALESCE(excluded.credential_ref, connections.credential_ref),
-                  account_label = COALESCE(excluded.account_label, connections.account_label),
+                  credential_ref = COALESCE(excluded.credential_ref, social_accounts.credential_ref),
+                  account_label = COALESCE(excluded.account_label, social_accounts.account_label),
                   meta = excluded.meta,
                   error = excluded.error,
+                  is_removed = excluded.is_removed,
                   updated_at = excluded.updated_at
                 """,
                 arguments: [
+                    accountId,
                     network.rawValue,
+                    providerAccountId,
                     state.rawValue,
                     credentialRef,
                     accountLabel,
                     JSONCodec.encode(meta),
                     error,
+                    isRemoved,
                     Time.now(),
                 ]
             )
         }
     }
 
-    func get(_ network: Network) throws -> ConnectionInfo {
+    func get(_ accountId: String) throws -> ConnectionInfo? {
         try dbQueue.read { db in
-            guard let row = try Row.fetchOne(
+            try Row.fetchOne(
                 db,
-                sql: "SELECT * FROM connections WHERE network = ?",
-                arguments: [network.rawValue]
-            ) else {
-                return ConnectionInfo(network: network, state: .disconnected, meta: [:])
-            }
-            return Self.info(from: row)
+                sql: "SELECT * FROM social_accounts WHERE id = ?",
+                arguments: [accountId]
+            ).map(Self.info(from:))
         }
     }
 
-    func list() throws -> [ConnectionInfo] {
+    func find(network: Network, providerAccountId: String) throws -> ConnectionInfo? {
         try dbQueue.read { db in
-            try Row.fetchAll(db, sql: "SELECT * FROM connections").map(Self.info(from:))
+            try Row.fetchOne(
+                db,
+                sql: "SELECT * FROM social_accounts WHERE network = ? AND provider_account_id = ?",
+                arguments: [network.rawValue, providerAccountId]
+            ).map(Self.info(from:))
         }
     }
 
-    func clear(_ network: Network) throws {
+    func list(includeRemoved: Bool = false) throws -> [ConnectionInfo] {
+        try dbQueue.read { db in
+            let sql = includeRemoved
+                ? "SELECT * FROM social_accounts ORDER BY network, account_label, updated_at"
+                : "SELECT * FROM social_accounts WHERE is_removed = 0 ORDER BY network, account_label, updated_at"
+            return try Row.fetchAll(db, sql: sql).map(Self.info(from:))
+        }
+    }
+
+    func list(network: Network, includeRemoved: Bool = false) throws -> [ConnectionInfo] {
+        try dbQueue.read { db in
+            let removedClause = includeRemoved ? "" : "AND is_removed = 0"
+            return try Row.fetchAll(
+                db,
+                sql: """
+                SELECT * FROM social_accounts
+                WHERE network = ? \(removedClause)
+                ORDER BY account_label, updated_at
+                """,
+                arguments: [network.rawValue]
+            ).map(Self.info(from:))
+        }
+    }
+
+    func clear(_ accountId: String) throws {
         try dbQueue.write { db in
-            try db.execute(sql: "DELETE FROM connections WHERE network = ?", arguments: [network.rawValue])
+            try db.execute(
+                sql: """
+                UPDATE social_accounts
+                SET state = 'disconnected', credential_ref = NULL, error = NULL,
+                    is_removed = 1, updated_at = ?
+                WHERE id = ?
+                """,
+                arguments: [Time.now(), accountId]
+            )
         }
     }
 
     private static func info(from row: Row) -> ConnectionInfo {
         ConnectionInfo(
+            id: row["id"],
             network: Network(rawValue: row["network"]) ?? .x,
+            providerAccountId: row["provider_account_id"],
             state: ConnectionState(rawValue: row["state"]) ?? .disconnected,
             accountLabel: row["account_label"],
             meta: JSONCodec.decode([String: String].self, from: row["meta"]),
             error: row["error"],
-            credentialRef: row["credential_ref"]
+            credentialRef: row["credential_ref"],
+            isRemoved: row["is_removed"]
         )
     }
 }

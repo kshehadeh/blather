@@ -57,6 +57,17 @@ private struct DestinationPreviewCard: View {
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(overLimit ? Color.red : Color.secondary)
             }
+            let labels = appModel.session.accountIds.compactMap { accountId -> String? in
+                guard let account = appModel.connection(accountId: accountId),
+                      account.network == network
+                else { return nil }
+                return account.accountLabel ?? "Unknown account"
+            }.sorted()
+            if !labels.isEmpty {
+                Text(labels.joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Text(resolved.text.isEmpty ? "No text yet." : resolved.text)
                 .font(.body)
                 .foregroundStyle(resolved.text.isEmpty ? .secondary : .primary)

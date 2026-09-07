@@ -49,15 +49,18 @@ your profile URL or handle.
 
 1. Open **Blather > Settings…** (Cmd+,).
 2. Open the **Accounts** tab and find the **Bluesky** section.
-3. Enter the PDS. Leave `https://bsky.social` unless you use a custom PDS URL.
-4. Enter your handle without `@` in **Handle**.
-5. Paste the generated password into **App password**.
-6. Select **Connect**.
-7. Confirm that the section shows the correct `@handle` and shows **connected**.
-8. Select **Run health checks** and confirm that no Bluesky error appears.
+3. Select **Add Account…**.
+4. Enter the PDS. Leave `https://bsky.social` unless you use a custom PDS URL.
+5. Enter your handle without `@` in **Handle**.
+6. Paste the generated password into **App password**.
+7. Select **Connect Account**.
+8. Confirm that the section shows the correct `@handle` and shows **connected**.
+9. Select **Run health checks** and confirm that no Bluesky error appears.
 
 There is no browser approval screen. Blather verifies the credentials directly with your PDS and
 stores the app password and session tokens in macOS Keychain.
+
+Repeat **Add Account…** with a separate app password for each additional Bluesky identity.
 
 ## 5. Test publishing
 

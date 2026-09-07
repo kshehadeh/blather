@@ -4,11 +4,14 @@ import Foundation
 enum ConnectService {
     static let callbackTimeout: TimeInterval = 120
 
-    static func connectX(clientId: String, database: AppDatabase) async throws {
+    static func connectX(clientId: String, accountId: String? = nil, database: AppDatabase) async throws {
         let pkce = PKCE.generate()
         let state = PKCE.state()
         try database.oauthStates.create(provider: "x", state: state, verifier: pkce.verifier)
-        try ConnectionStore.stashPending(state: state, config: ["clientId": clientId])
+        try ConnectionStore.stashPending(
+            state: state,
+            config: pendingConfig(["clientId": clientId], accountId: accountId)
+        )
         let redirect = "\(OAuthCallbackServer.origin)/api/connect/x/callback"
         var url = URLComponents(string: "https://x.com/i/oauth2/authorize")!
         url.queryItems = [
@@ -25,29 +28,47 @@ enum ConnectService {
         }
     }
 
-    static func connectThreads(clientId: String, clientSecret: String, database: AppDatabase) async throws {
+    static func connectThreads(
+        clientId: String,
+        clientSecret: String,
+        accountId: String? = nil,
+        database: AppDatabase
+    ) async throws {
         try await connectMeta(
             network: .threads,
             authorizeBase: "https://threads.net/oauth/authorize",
             scope: "threads_basic,threads_content_publish",
             clientId: clientId,
             clientSecret: clientSecret,
+            accountId: accountId,
             database: database
         )
     }
 
-    static func connectInstagram(clientId: String, clientSecret: String, database: AppDatabase) async throws {
+    static func connectInstagram(
+        clientId: String,
+        clientSecret: String,
+        accountId: String? = nil,
+        database: AppDatabase
+    ) async throws {
         try await connectMeta(
             network: .instagram,
             authorizeBase: "https://www.instagram.com/oauth/authorize",
             scope: "instagram_business_basic,instagram_business_content_publish",
             clientId: clientId,
             clientSecret: clientSecret,
+            accountId: accountId,
             database: database
         )
     }
 
-    static func connectBluesky(pds: String, handle: String, appPassword: String, database: AppDatabase) async throws {
+    static func connectBluesky(
+        pds: String,
+        handle: String,
+        appPassword: String,
+        accountId: String? = nil,
+        database: AppDatabase
+    ) async throws {
         let trimmed = pds.isEmpty ? "https://bsky.social" : pds.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let session = try await BlueskyAdapter.createSession(pds: trimmed, identifier: handle, appPassword: appPassword)
         try ConnectionStore.storeBasic(
@@ -59,34 +80,49 @@ enum ConnectService {
                 accessJwt: session.accessJwt,
                 refreshJwt: session.refreshJwt
             ),
+            providerAccountId: session.did,
             accountLabel: "@\(session.handle)",
             meta: ["pds": trimmed, "did": session.did],
+            expectedAccountId: accountId,
             database: database
         )
     }
 
-    static func disconnect(network: Network, database: AppDatabase) throws {
-        try ConnectionStore.disconnect(network: network, database: database)
+    static func disconnect(accountId: String, database: AppDatabase) throws {
+        try ConnectionStore.disconnect(accountId: accountId, database: database)
     }
 
     static func runHealthChecks(database: AppDatabase) async {
-        for network in Network.allCases {
-            let state = (try? database.connections.get(network).state) ?? .disconnected
-            guard state != .disconnected else { continue }
-            let adapter = AdapterRegistry.adapter(for: network, database: database)
+        let accounts = (try? database.connections.list()) ?? []
+        for account in accounts where account.state != .disconnected {
+            let adapter = AdapterRegistry.adapter(for: account, database: database)
             let result = await adapter.health()
             if result.ok {
-                let existing = (try? database.connections.get(network))?.meta ?? [:]
+                let existing = (try? database.connections.get(account.id))?.meta ?? [:]
+                let verifiedIdentity = account.network.providerAccountId(in: result.meta)
+                if let expected = account.providerAccountId,
+                   let verifiedIdentity,
+                   expected != verifiedIdentity
+                {
+                    try? ConnectionStore.markError(
+                        accountId: account.id,
+                        error: "\(account.network.rawValue): provider returned a different account identity",
+                        database: database
+                    )
+                    continue
+                }
                 try? database.connections.upsert(
-                    network: network,
+                    accountId: account.id,
+                    network: account.network,
+                    providerAccountId: verifiedIdentity ?? account.providerAccountId,
                     state: .connected,
                     accountLabel: result.accountLabel,
-                    meta: result.meta.isEmpty ? existing : result.meta,
+                    meta: existing.merging(result.meta) { _, new in new },
                     error: nil
                 )
             } else {
                 try? ConnectionStore.markError(
-                    network: network,
+                    accountId: account.id,
                     error: result.error ?? "Health check failed",
                     database: database
                 )
@@ -100,11 +136,18 @@ enum ConnectService {
         scope: String,
         clientId: String,
         clientSecret: String,
+        accountId: String?,
         database: AppDatabase
     ) async throws {
         let state = PKCE.state()
         try database.oauthStates.create(provider: network.rawValue, state: state, verifier: "pkce-not-used")
-        try ConnectionStore.stashPending(state: state, config: ["clientId": clientId, "clientSecret": clientSecret])
+        try ConnectionStore.stashPending(
+            state: state,
+            config: pendingConfig(
+                ["clientId": clientId, "clientSecret": clientSecret],
+                accountId: accountId
+            )
+        )
         let redirect = "\(OAuthCallbackServer.origin)/api/connect/\(network.rawValue)/callback"
         var url = URLComponents(string: authorizeBase)!
         url.queryItems = [
@@ -190,6 +233,9 @@ enum ConnectService {
         )
         let username = JSONValue.string(me, "data", "username")
         let userId = JSONValue.string(me, "data", "id") ?? ""
+        guard !userId.isEmpty else {
+            throw ProviderError(network: .x, "x: account response did not include a user id")
+        }
         try ConnectionStore.storeOAuth(
             network: .x,
             tokens: OAuthTokens(
@@ -198,8 +244,10 @@ enum ConnectService {
                 expiresAt: Date().timeIntervalSince1970 * 1000 + expires * 1000,
                 meta: ["clientId": clientId, "userId": userId, "username": username ?? ""]
             ),
+            providerAccountId: userId,
             accountLabel: username.map { "@\($0)" },
             meta: ["userId": userId],
+            expectedAccountId: config["accountId"],
             database: database
         )
     }
@@ -239,6 +287,9 @@ enum ConnectService {
             url: URL(string: "https://graph.threads.net/v1.0/me?fields=id,username&access_token=\(access.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!
         )
         let userId = JSONValue.string(me, "id") ?? ""
+        guard !userId.isEmpty else {
+            throw ProviderError(network: .threads, "threads: account response did not include a user id")
+        }
         let username = JSONValue.string(me, "username")
         try ConnectionStore.storeOAuth(
             network: .threads,
@@ -247,8 +298,10 @@ enum ConnectService {
                 expiresAt: Date().timeIntervalSince1970 * 1000 + expires * 1000,
                 meta: ["clientId": clientId, "clientSecret": clientSecret, "userId": userId]
             ),
+            providerAccountId: userId,
             accountLabel: username.map { "@\($0)" },
             meta: ["userId": userId],
+            expectedAccountId: config["accountId"],
             database: database
         )
     }
@@ -290,6 +343,9 @@ enum ConnectService {
             url: URL(string: "https://graph.instagram.com/v21.0/me?fields=user_id,username,account_type&access_token=\(access.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!
         )
         let igUserId = JSONValue.string(me, "user_id") ?? shortUserId
+        guard !igUserId.isEmpty else {
+            throw ProviderError(network: .instagram, "instagram: account response did not include a user id")
+        }
         let username = JSONValue.string(me, "username")
         let accountType = JSONValue.string(me, "account_type") ?? "unknown"
         try ConnectionStore.storeOAuth(
@@ -299,8 +355,10 @@ enum ConnectService {
                 expiresAt: Date().timeIntervalSince1970 * 1000 + expires * 1000,
                 meta: ["clientId": clientId, "clientSecret": clientSecret, "igUserId": igUserId]
             ),
+            providerAccountId: igUserId,
             accountLabel: username.map { "@\($0)" },
             meta: ["igUserId": igUserId, "accountType": accountType],
+            expectedAccountId: config["accountId"],
             database: database
         )
     }
@@ -309,6 +367,12 @@ enum ConnectService {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
         return Dictionary(uniqueKeysWithValues: items.compactMap { item in item.value.map { (item.name, $0) } })
     }
+
+    private static func pendingConfig(_ config: [String: String], accountId: String?) -> [String: String] {
+        guard let accountId else { return config }
+        return config.merging(["accountId": accountId]) { _, new in new }
+    }
+
 }
 
 private final class CompletionBox: @unchecked Sendable {

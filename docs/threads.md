@@ -77,14 +77,15 @@ Treat the App Secret like a password. Do not commit it to Git.
 1. Keep Blather running.
 2. Open **Blather > Settings…** (Cmd+,).
 3. Open the **Accounts** tab and find the **Threads** section.
-4. Paste the Meta **App ID** and **App Secret**.
-5. Select **Connect**.
+4. Select **Add Account…**.
+5. Paste the Meta **App ID** and **App Secret**, then select **Connect Account**.
 6. In the system browser, sign in to the intended Threads account and approve both permissions.
 7. Wait for the completion message, then return to Blather.
 8. Confirm that the Threads section shows the correct account and shows **connected**.
 9. Select **Run health checks** and confirm that no Threads error appears.
 
 Blather exchanges the initial token for a longer-lived token and refreshes it before it expires.
+Repeat **Add Account…** while signed into each additional Threads identity you want to use.
 
 ## 6. Set up media publishing, if needed
 

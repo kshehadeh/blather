@@ -23,9 +23,8 @@ final class AppModel {
     var session = DraftSession()
     var drafts: [Draft] = []
     var history: [PublishAttempt] = []
-    var connections: [ConnectionInfo] = Network.allCases.map {
-        ConnectionInfo(network: $0, state: .disconnected, meta: [:])
-    }
+    var connections: [ConnectionInfo] = []
+    private var connectionsById: [String: ConnectionInfo] = [:]
 
     var statusMessage: String?
     var isBusy = false
@@ -35,17 +34,16 @@ final class AppModel {
 
     init(database: AppDatabase) {
         self.database = database
+        seedMockAccountsIfNeeded()
         reload()
     }
 
     func reload() {
         drafts = (try? database.drafts.list()) ?? []
         history = (try? database.attempts.list()) ?? []
-        let stored = (try? database.connections.list()) ?? []
-        connections = Network.allCases.map { network in
-            stored.first { $0.network == network }
-                ?? ConnectionInfo(network: network, state: .disconnected, meta: [:])
-        }
+        let allConnections = (try? database.connections.list(includeRemoved: true)) ?? []
+        connectionsById = Dictionary(uniqueKeysWithValues: allConnections.map { ($0.id, $0) })
+        connections = allConnections.filter { !$0.isRemoved }
         backfillHistoryPermalinks()
     }
 
@@ -66,9 +64,12 @@ final class AppModel {
         connections.filter { $0.state == .connected }.count
     }
 
-    func connection(for network: Network) -> ConnectionInfo {
-        connections.first { $0.network == network }
-            ?? ConnectionInfo(network: network, state: .disconnected, meta: [:])
+    func connection(accountId: String) -> ConnectionInfo? {
+        connectionsById[accountId]
+    }
+
+    func accounts(for network: Network) -> [ConnectionInfo] {
+        connections.filter { $0.network == network }
     }
 
     func newDraft() {
@@ -89,6 +90,7 @@ final class AppModel {
                     id: id,
                     text: payload.text,
                     mediaIds: payload.mediaIds,
+                    accountIds: payload.accountIds,
                     networks: payload.networks,
                     overrides: payload.overrides
                 )
@@ -97,6 +99,7 @@ final class AppModel {
                 let draft = try database.drafts.create(
                     text: payload.text,
                     mediaIds: payload.mediaIds,
+                    accountIds: payload.accountIds,
                     networks: payload.networks,
                     overrides: payload.overrides
                 )
@@ -110,8 +113,8 @@ final class AppModel {
     }
 
     func publish() {
-        let networks = Network.allCases.filter { session.networks.contains($0) }
-        let progress = startPublishProgress(networks: networks)
+        let accounts = session.accountIds.compactMap(connection(accountId:))
+        let progress = startPublishProgress(accounts: accounts)
         isBusy = true
         Task {
             defer { finishPublishProgress() }
@@ -142,8 +145,9 @@ final class AppModel {
     }
 
     func retryAttempt(id: String) {
-        let network = (try? database.attempts.get(id))?.network
-        let progress = startPublishProgress(networks: network.map { [$0] } ?? [])
+        let attempt = try? database.attempts.get(id)
+        let accounts = attempt?.accountId.flatMap(connection(accountId:)).map { [$0] } ?? []
+        let progress = startPublishProgress(accounts: accounts)
         isBusy = true
         Task {
             defer { finishPublishProgress() }
@@ -165,12 +169,8 @@ final class AppModel {
     }
 
     @discardableResult
-    private func startPublishProgress(networks: [Network]) -> PublishProgress {
-        let labels = Dictionary(uniqueKeysWithValues: connections.compactMap { connection -> (Network, String)? in
-            guard let label = connection.accountLabel else { return nil }
-            return (connection.network, label)
-        })
-        let progress = PublishProgress(networks: networks, accountLabels: labels)
+    private func startPublishProgress(accounts: [ConnectionInfo]) -> PublishProgress {
+        let progress = PublishProgress(accounts: accounts)
         publishProgress = progress
         return progress
     }
@@ -251,51 +251,90 @@ final class AppModel {
         }
     }
 
-    func connectX(clientId: String) {
+    func connectX(clientId: String, accountId: String? = nil) {
         let database = database
-        Task { await runConnect { try await ConnectService.connectX(clientId: clientId, database: database) } }
+        Task {
+            await runConnect {
+                try await ConnectService.connectX(clientId: clientId, accountId: accountId, database: database)
+            }
+        }
     }
 
-    func connectBluesky(pds: String, handle: String, appPassword: String) {
+    func connectBluesky(pds: String, handle: String, appPassword: String, accountId: String? = nil) {
         let database = database
-        Task { await runConnect { try await ConnectService.connectBluesky(pds: pds, handle: handle, appPassword: appPassword, database: database) } }
+        Task {
+            await runConnect {
+                try await ConnectService.connectBluesky(
+                    pds: pds,
+                    handle: handle,
+                    appPassword: appPassword,
+                    accountId: accountId,
+                    database: database
+                )
+            }
+        }
     }
 
-    func connectThreads(clientId: String, clientSecret: String) {
+    func connectThreads(clientId: String, clientSecret: String, accountId: String? = nil) {
         let database = database
-        Task { await runConnect { try await ConnectService.connectThreads(clientId: clientId, clientSecret: clientSecret, database: database) } }
+        Task {
+            await runConnect {
+                try await ConnectService.connectThreads(
+                    clientId: clientId,
+                    clientSecret: clientSecret,
+                    accountId: accountId,
+                    database: database
+                )
+            }
+        }
     }
 
-    func connectInstagram(clientId: String, clientSecret: String) {
+    func connectInstagram(clientId: String, clientSecret: String, accountId: String? = nil) {
         let database = database
-        Task { await runConnect { try await ConnectService.connectInstagram(clientId: clientId, clientSecret: clientSecret, database: database) } }
+        Task {
+            await runConnect {
+                try await ConnectService.connectInstagram(
+                    clientId: clientId,
+                    clientSecret: clientSecret,
+                    accountId: accountId,
+                    database: database
+                )
+            }
+        }
     }
 
-    func disconnect(network: Network) {
+    func disconnect(accountId: String) {
         do {
-            try ConnectService.disconnect(network: network, database: database)
+            let account = connection(accountId: accountId)
+            try ConnectService.disconnect(accountId: accountId, database: database)
             reload()
-            statusMessage = "\(network.title) disconnected"
+            statusMessage = "\(account?.accountLabel ?? account?.network.title ?? "Account") removed"
         } catch {
             statusMessage = error.localizedDescription
         }
     }
 
-    func accountSettings(for network: Network) -> AccountConnectSettings {
-        AccountSettings.load(network: network, database: database)
+    func accountSettings(accountId: String?, network: Network) -> AccountConnectSettings {
+        accountId.map { AccountSettings.load(accountId: $0, database: database) }
+            ?? AccountSettings.empty(network: network)
     }
 
     func saveAccount(
         network: Network,
+        accountId: String?,
         clientId: String,
         clientSecret: String,
         pds: String,
         handle: String,
-        appPassword: String
+        appPassword: String,
+        forceReconnect: Bool = false
     ) {
-        let stored = accountSettings(for: network)
-        let storedAppPassword = Credentials.read(BasicCredentials.self, ref: connection(for: network).credentialRef)?.secret
-        let storedClientSecret = TokenAccess.loadTokens(network: network, database: database)?.meta?["clientSecret"]
+        let stored = accountSettings(accountId: accountId, network: network)
+        let account = accountId.flatMap(connection(accountId:))
+        let storedAppPassword = Credentials.read(BasicCredentials.self, ref: account?.credentialRef)?.secret
+        let storedClientSecret = accountId
+            .flatMap { TokenAccess.loadTokens(accountId: $0, database: database) }?
+            .meta?["clientSecret"]
         switch AccountSettings.plan(
             network: network,
             clientId: clientId,
@@ -305,18 +344,19 @@ final class AppModel {
             appPassword: appPassword,
             stored: stored,
             storedAppPassword: storedAppPassword,
-            storedClientSecret: storedClientSecret
+            storedClientSecret: storedClientSecret,
+            forceReconnect: forceReconnect
         ) {
         case .noOp:
             statusMessage = "No changes to save"
         case .reconnectBluesky(let pds, let handle, let appPassword):
-            connectBluesky(pds: pds, handle: handle, appPassword: appPassword)
+            connectBluesky(pds: pds, handle: handle, appPassword: appPassword, accountId: accountId)
         case .reconnectX(let clientId):
-            connectX(clientId: clientId)
+            connectX(clientId: clientId, accountId: accountId)
         case .reconnectThreads(let clientId, let clientSecret):
-            connectThreads(clientId: clientId, clientSecret: clientSecret)
+            connectThreads(clientId: clientId, clientSecret: clientSecret, accountId: accountId)
         case .reconnectInstagram(let clientId, let clientSecret):
-            connectInstagram(clientId: clientId, clientSecret: clientSecret)
+            connectInstagram(clientId: clientId, clientSecret: clientSecret, accountId: accountId)
         }
     }
 
@@ -428,17 +468,50 @@ final class AppModel {
     func openDraft(_ draft: Draft) {
         let mediaIds = Set(draft.mediaIds + draft.overrides.values.flatMap { $0.mediaIds ?? [] })
         let media = (try? database.media.byIds(Array(mediaIds))) ?? []
-        session = DraftSession(draft: draft, media: media)
+        let accounts = (try? database.connections.list(includeRemoved: true)) ?? []
+        session = DraftSession(draft: draft, media: media, accounts: accounts)
         selectedSidebar = .compose
     }
 
-    private func sessionSnapshot() -> (text: String, mediaIds: [String], networks: [Network], overrides: [Network: NetworkOverride]) {
+    private func sessionSnapshot() -> (
+        text: String,
+        mediaIds: [String],
+        accountIds: [String],
+        networks: [Network],
+        overrides: [Network: NetworkOverride]
+    ) {
+        let accountIds = session.accountIds.sorted()
         let networks = Network.allCases.filter { session.networks.contains($0) }
         return (
             session.text,
             session.media.map(\.id),
+            accountIds,
             networks,
             session.showsDestinationOverrides ? session.overrides : [:]
+        )
+    }
+
+    private func seedMockAccountsIfNeeded() {
+        guard AdapterRegistry.useMocks,
+              ((try? database.connections.list(includeRemoved: true)) ?? []).isEmpty
+        else { return }
+        for network in Network.allCases {
+            try? database.connections.upsert(
+                accountId: "mock-\(network.rawValue)",
+                network: network,
+                providerAccountId: "mock-\(network.rawValue)",
+                state: .connected,
+                accountLabel: "@mock-\(network.rawValue)",
+                meta: [:]
+            )
+        }
+        try? database.connections.upsert(
+            accountId: "mock-x-2",
+            network: .x,
+            providerAccountId: "mock-x-2",
+            state: .connected,
+            accountLabel: "@mock-x-2",
+            meta: [:]
         )
     }
 }
@@ -448,17 +521,23 @@ final class DraftSession {
     var draftId: String?
     var text: String = ""
     var media: [MediaItem] = []
-    var networks: Set<Network> = []
+    var accountIds: Set<String> = []
+    private var accountNetworks: [String: Network] = [:]
     var overrides: [Network: NetworkOverride] = [:]
     var lastAttempts: [PublishAttempt] = []
 
     init() {}
 
-    init(draft: Draft, media: [MediaItem]) {
+    init(draft: Draft, media: [MediaItem], accounts: [ConnectionInfo]) {
         draftId = draft.id
         text = draft.text
         self.media = media
-        networks = Set(draft.networks)
+        accountIds = Set(draft.accountIds)
+        accountNetworks = Dictionary(
+            uniqueKeysWithValues: accounts
+                .filter { accountIds.contains($0.id) }
+                .map { ($0.id, $0.network) }
+        )
         overrides = networks.count > 1 ? draft.overrides : [:]
     }
 
@@ -466,20 +545,28 @@ final class DraftSession {
         draftId != nil
             || !text.isEmpty
             || !media.isEmpty
-            || !networks.isEmpty
+            || !accountIds.isEmpty
             || !overrides.isEmpty
             || !lastAttempts.isEmpty
     }
 
     var showsDestinationOverrides: Bool { networks.count > 1 }
 
-    func setNetwork(_ network: Network, enabled: Bool) {
+    var networks: Set<Network> {
+        Set(accountIds.compactMap { accountNetworks[$0] })
+    }
+
+    func setAccount(_ account: ConnectionInfo, enabled: Bool) {
         if enabled {
-            networks.insert(network)
+            accountIds.insert(account.id)
+            accountNetworks[account.id] = account.network
             return
         }
-        networks.remove(network)
-        overrides[network] = nil
+        accountIds.remove(account.id)
+        accountNetworks[account.id] = nil
+        if !networks.contains(account.network) {
+            overrides[account.network] = nil
+        }
         if !showsDestinationOverrides {
             overrides.removeAll()
         }

@@ -41,6 +41,10 @@ private struct HistoryRow: View {
                     NetworkIcon(network: attempt.network)
                     Text(attempt.network.title)
                         .font(.headline)
+                    if let label = attempt.accountLabelSnapshot {
+                        Text(label)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 if !attempt.textSnapshot.isEmpty {
                     Text(attempt.textSnapshot)
@@ -67,8 +71,9 @@ private struct HistoryRow: View {
                 Button("Retry") {
                     appModel.retryAttempt(id: attempt.id)
                 }
-                .disabled(appModel.isBusy)
-                .accessibilityIdentifier("retry-\(attempt.network.rawValue)")
+                .disabled(appModel.isBusy || !canRetry)
+                .accessibilityIdentifier("retry-\(attempt.accountId ?? attempt.network.rawValue)")
+                .help(canRetry ? "Retry this account" : "Reconnect the original account to retry")
             }
         }
         .padding(.vertical, 4)
@@ -82,5 +87,12 @@ private struct HistoryRow: View {
             return formatter.string(from: date)
         }
         return attempt.createdAt
+    }
+
+    private var canRetry: Bool {
+        guard let accountId = attempt.accountId,
+              let account = appModel.connection(accountId: accountId)
+        else { return false }
+        return account.canPublish
     }
 }

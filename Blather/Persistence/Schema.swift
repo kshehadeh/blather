@@ -2,10 +2,16 @@ import Foundation
 
 enum Schema {
     static let sql = """
+    CREATE TABLE IF NOT EXISTS app_migrations (
+      name TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS drafts (
       id TEXT PRIMARY KEY,
       text TEXT NOT NULL DEFAULT '',
       media_ids TEXT NOT NULL DEFAULT '[]',
+      account_ids TEXT NOT NULL DEFAULT '[]',
       networks TEXT NOT NULL DEFAULT '[]',
       overrides TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL,
@@ -16,6 +22,8 @@ enum Schema {
       id TEXT PRIMARY KEY,
       draft_id TEXT NOT NULL,
       network TEXT NOT NULL,
+      account_id TEXT,
+      account_label_snapshot TEXT,
       status TEXT NOT NULL CHECK (status IN ('pending','publishing','success','failed')),
       provider_post_id TEXT,
       provider_post_url TEXT,
@@ -27,15 +35,22 @@ enum Schema {
     CREATE INDEX IF NOT EXISTS idx_attempts_draft ON publish_attempts(draft_id);
     CREATE INDEX IF NOT EXISTS idx_attempts_created ON publish_attempts(created_at DESC);
 
-    CREATE TABLE IF NOT EXISTS connections (
-      network TEXT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS social_accounts (
+      id TEXT PRIMARY KEY,
+      network TEXT NOT NULL,
+      provider_account_id TEXT,
       state TEXT NOT NULL CHECK (state IN ('disconnected','connected','error')),
       credential_ref TEXT,
       account_label TEXT,
       meta TEXT NOT NULL DEFAULT '{}',
       error TEXT,
+      is_removed INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_social_accounts_identity
+      ON social_accounts(network, provider_account_id);
+    CREATE INDEX IF NOT EXISTS idx_social_accounts_network
+      ON social_accounts(network, is_removed, updated_at);
 
     CREATE TABLE IF NOT EXISTS media (
       id TEXT PRIMARY KEY,

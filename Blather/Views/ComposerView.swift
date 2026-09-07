@@ -148,20 +148,50 @@ struct ComposerView: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text("Destinations")
                 .font(.headline)
-            Text("Select the networks where this post will be published.")
+            Text("Select each account where this post will be published.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(Network.allCases) { network in
-                    Toggle(isOn: networkBinding(network)) {
+                    let accounts = destinationAccounts(for: network)
+                    VStack(alignment: .leading, spacing: 6) {
                         Label {
                             Text(network.title)
+                                .font(.subheadline.weight(.semibold))
                         } icon: {
                             NetworkIcon(network: network)
                         }
+                        if accounts.isEmpty {
+                            Button("Add \(network.title) account…") {
+                                SettingsWindowController.show(tab: .accounts, network: network)
+                            }
+                            .buttonStyle(.link)
+                        } else {
+                            ForEach(accounts) { account in
+                                HStack {
+                                    Toggle(isOn: accountBinding(account)) {
+                                        Text(account.accountLabel ?? "Unknown account")
+                                        if !account.canPublish {
+                                            Text("Unavailable")
+                                                .font(.caption)
+                                                .foregroundStyle(.red)
+                                        }
+                                    }
+                                    if !account.canPublish {
+                                        Button("Manage…") {
+                                            SettingsWindowController.show(
+                                                tab: .accounts,
+                                                network: network,
+                                                accountId: account.id
+                                            )
+                                        }
+                                        .buttonStyle(.link)
+                                    }
+                                }
+                                .accessibilityIdentifier("destination-\(account.id)")
+                            }
+                        }
                     }
-                    .toggleStyle(.button)
-                    .accessibilityIdentifier("destination-\(network.rawValue)")
                 }
             }
         }
@@ -201,7 +231,7 @@ struct ComposerView: View {
                 appModel.publish()
             }
             .keyboardShortcut(.return, modifiers: .command)
-            .disabled(appModel.session.networks.isEmpty || appModel.isBusy)
+            .disabled(appModel.session.accountIds.isEmpty || hasUnavailableSelection || appModel.isBusy)
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("publish")
             Button("Discard", role: .destructive) {
@@ -243,13 +273,35 @@ struct ComposerView: View {
         )
     }
 
-    private func networkBinding(_ network: Network) -> Binding<Bool> {
+    private func accountBinding(_ account: ConnectionInfo) -> Binding<Bool> {
         Binding(
-            get: { appModel.session.networks.contains(network) },
+            get: { appModel.session.accountIds.contains(account.id) },
             set: { isOn in
-                appModel.session.setNetwork(network, enabled: isOn)
+                if isOn, !account.canPublish { return }
+                appModel.session.setAccount(account, enabled: isOn)
             }
         )
+    }
+
+    private func destinationAccounts(for network: Network) -> [ConnectionInfo] {
+        var accounts = appModel.accounts(for: network)
+        for accountId in appModel.session.accountIds {
+            guard let account = appModel.connection(accountId: accountId),
+                  account.network == network,
+                  !accounts.contains(where: { $0.id == account.id })
+            else { continue }
+            accounts.append(account)
+        }
+        return accounts.sorted {
+            ($0.accountLabel ?? $0.id).localizedCaseInsensitiveCompare($1.accountLabel ?? $1.id) == .orderedAscending
+        }
+    }
+
+    private var hasUnavailableSelection: Bool {
+        appModel.session.accountIds.contains { accountId in
+            guard let account = appModel.connection(accountId: accountId) else { return true }
+            return !account.canPublish
+        }
     }
 
     private func overrideBinding(_ network: Network) -> Binding<String> {

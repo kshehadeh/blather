@@ -54,7 +54,7 @@ struct MainSplitView: View {
                     Label("Publish", systemImage: "paperplane")
                 }
                 .help("Publish")
-                .disabled(appModel.session.networks.isEmpty || appModel.selectedSidebar != .compose || appModel.isBusy)
+                .disabled(appModel.session.accountIds.isEmpty || appModel.selectedSidebar != .compose || appModel.isBusy)
 
                 Button {
                     appModel.showInspector.toggle()

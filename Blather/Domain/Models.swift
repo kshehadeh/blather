@@ -25,6 +25,14 @@ enum Network: String, CaseIterable, Identifiable, Codable, Hashable, Sendable {
         case .instagram: "NetworkInstagram"
         }
     }
+
+    func providerAccountId(in meta: [String: String]) -> String? {
+        switch self {
+        case .x, .threads: meta["userId"]
+        case .instagram: meta["igUserId"]
+        case .bluesky: meta["did"]
+        }
+    }
 }
 
 enum MediaKind: String, Codable, Hashable, Sendable {
@@ -53,6 +61,7 @@ struct Draft: Identifiable, Hashable, Codable, Sendable {
     var id: String
     var text: String
     var mediaIds: [String]
+    var accountIds: [String] = []
     var networks: [Network]
     var overrides: [Network: NetworkOverride]
     var createdAt: String
@@ -70,6 +79,8 @@ struct PublishAttempt: Identifiable, Hashable, Codable, Sendable {
     var id: String
     var draftId: String
     var network: Network
+    var accountId: String? = nil
+    var accountLabelSnapshot: String? = nil
     var status: AttemptStatus
     var providerPostId: String?
     var providerPostUrl: String?
@@ -86,14 +97,19 @@ enum ConnectionState: String, Codable, Hashable, Sendable {
 }
 
 struct ConnectionInfo: Identifiable, Hashable, Codable, Sendable {
+    var id: String
     var network: Network
+    var providerAccountId: String? = nil
     var state: ConnectionState
     var accountLabel: String?
     var meta: [String: String]
     var error: String?
     var credentialRef: String?
+    var isRemoved: Bool = false
 
-    var id: Network { network }
+    var canPublish: Bool {
+        !isRemoved && state == .connected
+    }
 }
 
 struct ProviderCapabilities: Hashable, Sendable {

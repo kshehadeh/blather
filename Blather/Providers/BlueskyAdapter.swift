@@ -4,13 +4,14 @@ import ImageIO
 import UniformTypeIdentifiers
 
 struct BlueskyAdapter: ProviderAdapter {
+    let accountId: String
     let database: AppDatabase
     var network: Network { .bluesky }
 
     private let maxImageBytes = 1_000_000
 
     func isConnected() -> Bool {
-        let conn = (try? database.connections.get(.bluesky))
+        let conn = try? database.connections.get(accountId)
         return conn?.state == .connected && conn?.credentialRef != nil
     }
 
@@ -149,8 +150,9 @@ struct BlueskyAdapter: ProviderAdapter {
     }
 
     private func session() async throws -> BlueskySession {
-        let conn = try database.connections.get(.bluesky)
-        guard let creds = Credentials.read(BasicCredentials.self, ref: conn.credentialRef) else {
+        guard let conn = try database.connections.get(accountId),
+              let creds = Credentials.read(BasicCredentials.self, ref: conn.credentialRef)
+        else {
             throw ProviderError(network: .bluesky, "bluesky: not connected")
         }
         let pds = creds.meta?["pds"] ?? "https://bsky.social"

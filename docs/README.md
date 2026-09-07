@@ -1,7 +1,7 @@
 # Social network setup
 
-Blather can publish to one account on each of these networks. You only need to set up the
-networks you intend to use.
+Blather can connect multiple accounts on each network. When composing, select every individual
+account that should receive the post.
 
 | Network | What you need | Setup guide |
 | --- | --- | --- |
@@ -23,6 +23,19 @@ requires media.
 4. If the browser warns that the local certificate is unsafe, continue for this local address
    (Blather generates a self-signed identity under `~/.blather/oauth-tls/` on first connect).
 5. Make sure no other program is using port `3000` while you connect.
+
+## Using multiple accounts
+
+Expand a network in **Settings > Accounts**, then select **Add Account…** for each identity you
+want to connect. During browser authorization, verify that the provider shows the intended
+account. Blather identifies accounts by the provider's stable user ID, so reconnecting an
+existing identity updates it instead of creating a duplicate.
+
+The composer groups accounts by network. You can select several accounts from the same network
+for one post. Destination overrides are shared by network, so every selected X account receives
+the same X override, for example. Progress, History, failures, and retries remain separate for
+each account. If an account is removed, drafts and History retain its identity, but it must be
+reconnected before publishing or retrying.
 
 ## Terms used in these guides
 

@@ -1,17 +1,18 @@
 import Foundation
 
 struct ThreadsAdapter: ProviderAdapter {
+    let accountId: String
     let database: AppDatabase
     var network: Network { .threads }
 
     private let graph = "https://graph.threads.net/v1.0"
 
     func isConnected() -> Bool {
-        TokenAccess.loadTokens(network: .threads, database: database)?.accessToken.isEmpty == false
+        TokenAccess.loadTokens(accountId: accountId, database: database)?.accessToken.isEmpty == false
     }
 
     func refreshIfNeeded() async throws {
-        let tokens = TokenAccess.loadTokens(network: .threads, database: database)
+        let tokens = TokenAccess.loadTokens(accountId: accountId, database: database)
         guard let tokens, TokenAccess.tokenExpiringSoon(tokens, skewMs: 24 * 60 * 60 * 1000) else { return }
         let url = URL(string: "https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=\(tokens.accessToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? tokens.accessToken)")!
         let res = try await ProviderHTTP.fetchJSON(network: .threads, url: url)
@@ -21,7 +22,7 @@ struct ThreadsAdapter: ProviderAdapter {
             if let expires = JSONValue.string(res, "expires_in"), let seconds = Double(expires) {
                 next.expiresAt = Date().timeIntervalSince1970 * 1000 + seconds * 1000
             }
-            try TokenAccess.saveTokens(network: .threads, tokens: next, database: database)
+            try TokenAccess.saveTokens(accountId: accountId, network: .threads, tokens: next, database: database)
         }
     }
 
@@ -31,7 +32,7 @@ struct ThreadsAdapter: ProviderAdapter {
 
     func publish(content: ResolvedContent, context: any PublishContext) async throws -> PublishResult {
         try await refreshIfNeeded()
-        let tokens = try TokenAccess.requireTokens(network: .threads, database: database)
+        let tokens = try TokenAccess.requireTokens(accountId: accountId, network: .threads, database: database)
         guard let userId = tokens.meta?["userId"], !userId.isEmpty else {
             throw ProviderError(network: .threads, "threads: missing user id; reconnect")
         }
@@ -69,7 +70,7 @@ struct ThreadsAdapter: ProviderAdapter {
 
     func lookupPermalink(mediaId: String) async -> String? {
         try? await refreshIfNeeded()
-        guard let tokens = TokenAccess.loadTokens(network: .threads, database: database),
+        guard let tokens = TokenAccess.loadTokens(accountId: accountId, database: database),
               !tokens.accessToken.isEmpty
         else { return nil }
         return await GraphPermalink.fetch(
@@ -88,19 +89,19 @@ struct ThreadsAdapter: ProviderAdapter {
     func health() async -> HealthResult {
         do {
             try await refreshIfNeeded()
-            var tokens = try TokenAccess.requireTokens(network: .threads, database: database)
+            let tokens = try TokenAccess.requireTokens(accountId: accountId, network: .threads, database: database)
             let res = try await ProviderHTTP.fetchJSON(
                 network: .threads,
                 url: URL(string: "\(graph)/me?fields=id,username&access_token=\(tokens.accessToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!
             )
-            if let id = JSONValue.string(res, "id"), id != tokens.meta?["userId"] {
-                var meta = tokens.meta ?? [:]
-                meta["userId"] = id
-                tokens.meta = meta
-                try TokenAccess.saveTokens(network: .threads, tokens: tokens, database: database)
-            }
+            let userId = JSONValue.string(res, "id")
             let username = JSONValue.string(res, "username")
-            return HealthResult(ok: true, accountLabel: username.map { "@\($0)" }, meta: [:], error: nil)
+            return HealthResult(
+                ok: true,
+                accountLabel: username.map { "@\($0)" },
+                meta: userId.map { ["userId": $0] } ?? [:],
+                error: nil
+            )
         } catch {
             return HealthResult(ok: false, meta: [:], error: normalizeError(error))
         }

@@ -7,7 +7,11 @@ struct ConnectionStatusToolbar: View {
         Menu {
             ForEach(appModel.connections) { connection in
                 Button {
-                    SettingsWindowController.show(tab: .accounts, network: connection.network)
+                    SettingsWindowController.show(
+                        tab: .accounts,
+                        network: connection.network,
+                        accountId: connection.id
+                    )
                 } label: {
                     Label {
                         Text(connection.network.title)

@@ -100,8 +100,8 @@ product setup. Keep the secret private.
 1. Keep Blather running.
 2. Open **Blather > Settings…** (Cmd+,).
 3. Open the **Accounts** tab and find the **Instagram** section.
-4. Paste the Meta **App ID** and **App Secret**.
-5. Select **Connect**.
+4. Select **Add Account…**.
+5. Paste the Meta **App ID** and **App Secret**, then select **Connect Account**.
 6. In the system browser, sign in to the intended professional Instagram account and approve the
    requested access.
 7. Wait for the completion message, then return to Blather.
@@ -110,6 +110,7 @@ product setup. Keep the secret private.
    account as Business or Creator.
 
 Blather exchanges the initial token for a longer-lived token and refreshes it before it expires.
+Repeat **Add Account…** while signed into each additional professional Instagram identity.
 
 ## 7. Configure Cloudflare R2
 
@@ -134,7 +135,7 @@ Provider-side encoding, aspect-ratio, or account limits can be stricter.
 ### Blather says the account must be Business or Creator
 
 The connected account is still Personal, or Instagram has not finished applying the account-type
-change. Confirm the type in Instagram, disconnect it in Blather, and connect again.
+change. Confirm the type in Instagram, remove it in Blather, and connect again.
 
 ### Meta says the redirect URI is invalid
 

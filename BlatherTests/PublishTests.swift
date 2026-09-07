@@ -7,6 +7,9 @@ struct PublishTests {
         let db = try AppDatabase.inMemory()
         AdapterRegistry.useMocks = true
         AdapterRegistry.mockFail = [.instagram]
+        let xAccount = try makeTestAccount(db, network: .x)
+        let blueskyAccount = try makeTestAccount(db, network: .bluesky)
+        let instagramAccount = try makeTestAccount(db, network: .instagram)
         let media = try db.media.create(
             kind: .image,
             mimeType: "image/jpeg",
@@ -17,6 +20,7 @@ struct PublishTests {
         let draft = try db.drafts.create(
             text: "hello world",
             mediaIds: [media.id],
+            accountIds: [xAccount.id, blueskyAccount.id, instagramAccount.id],
             networks: [.x, .bluesky, .instagram],
             overrides: [:]
         )
@@ -38,7 +42,14 @@ struct PublishTests {
         let db = try AppDatabase.inMemory()
         AdapterRegistry.useMocks = true
         AdapterRegistry.mockFail = []
-        let draft = try db.drafts.create(text: "ok", mediaIds: [], networks: [.x], overrides: [:])
+        let account = try makeTestAccount(db, network: .x)
+        let draft = try db.drafts.create(
+            text: "ok",
+            mediaIds: [],
+            accountIds: [account.id],
+            networks: [.x],
+            overrides: [:]
+        )
         let attempts = try await PublishOrchestrator.publishDraft(id: draft.id, database: db)
         await #expect(throws: PublishError.retryOnlyFailed) {
             try await PublishOrchestrator.retryAttempt(id: attempts[0].id, database: db)
@@ -49,6 +60,8 @@ struct PublishTests {
         let db = try AppDatabase.inMemory()
         AdapterRegistry.useMocks = true
         AdapterRegistry.mockFail = [.instagram]
+        let xAccount = try makeTestAccount(db, network: .x)
+        let instagramAccount = try makeTestAccount(db, network: .instagram)
         let media = try db.media.create(
             kind: .image,
             mimeType: "image/jpeg",
@@ -59,6 +72,7 @@ struct PublishTests {
         let draft = try db.drafts.create(
             text: "hello world",
             mediaIds: [media.id],
+            accountIds: [xAccount.id, instagramAccount.id],
             networks: [.x, .instagram],
             overrides: [:]
         )
@@ -82,7 +96,8 @@ struct PublishTests {
         let db = try AppDatabase.inMemory()
         let model = AppModel(database: db)
         model.session.text = "hello world"
-        model.session.networks = [.x, .instagram]
+        model.session.setAccount(model.connection(accountId: "mock-x")!, enabled: true)
+        model.session.setAccount(model.connection(accountId: "mock-instagram")!, enabled: true)
         model.publish()
         for _ in 0..<100 {
             if model.publishProgress?.isFinished == true { break }
@@ -105,7 +120,8 @@ struct PublishTests {
         let db = try AppDatabase.inMemory()
         let model = AppModel(database: db)
         model.session.text = "hello world"
-        model.session.networks = [.x, .bluesky]
+        model.session.setAccount(model.connection(accountId: "mock-x")!, enabled: true)
+        model.session.setAccount(model.connection(accountId: "mock-bluesky")!, enabled: true)
         model.session.overrides[.x] = NetworkOverride(text: "x copy", mediaIds: nil)
         model.publish()
         for _ in 0..<100 {
@@ -125,12 +141,17 @@ struct PublishTests {
     }
 
     @Test @MainActor func publishProgressMarksInFlightItemsFailed() {
-        let progress = PublishProgress(networks: [.x, .bluesky])
+        let accounts = [
+            ConnectionInfo(id: "x-1", network: .x, state: .connected, meta: [:]),
+            ConnectionInfo(id: "b-1", network: .bluesky, state: .connected, meta: [:]),
+        ]
+        let progress = PublishProgress(accounts: accounts)
         progress.update(
             PublishAttempt(
                 id: "1",
                 draftId: "d",
                 network: .x,
+                accountId: "x-1",
                 status: .success,
                 providerPostId: "p",
                 providerPostUrl: nil,
@@ -150,13 +171,82 @@ struct PublishTests {
 
     @Test func recoveryMarksStuckPublishingFailed() throws {
         let db = try AppDatabase.inMemory()
-        let draft = try db.drafts.create(text: "stuck", mediaIds: [], networks: [.x], overrides: [:])
-        let attempt = try db.attempts.create(draftId: draft.id, network: .x, textSnapshot: "stuck")
+        let account = try makeTestAccount(db, network: .x)
+        let draft = try db.drafts.create(
+            text: "stuck",
+            mediaIds: [],
+            accountIds: [account.id],
+            networks: [.x],
+            overrides: [:]
+        )
+        let attempt = try db.attempts.create(
+            draftId: draft.id,
+            network: .x,
+            accountId: account.id,
+            textSnapshot: "stuck"
+        )
         try db.attempts.setStatus(id: attempt.id, status: .publishing)
         try PublishOrchestrator.recoverInterrupted(database: db)
         let recovered = try db.attempts.get(attempt.id)
         #expect(recovered?.status == .failed)
         #expect(recovered?.error?.contains("interrupted") == true)
+    }
+
+    @Test func publishesAndRetriesAccountsOnSameNetworkIndependently() async throws {
+        let db = try AppDatabase.inMemory()
+        AdapterRegistry.useMocks = true
+        AdapterRegistry.mockFail = []
+        let first = try makeTestAccount(db, network: .x, suffix: "one")
+        let second = try makeTestAccount(db, network: .x, suffix: "two")
+        AdapterRegistry.mockFailAccountIds = [second.id]
+        defer { AdapterRegistry.mockFailAccountIds = [] }
+        let draft = try db.drafts.create(
+            text: "base",
+            mediaIds: [],
+            accountIds: [first.id, second.id],
+            networks: [.x],
+            overrides: [.x: NetworkOverride(text: "shared x copy", mediaIds: nil)]
+        )
+
+        let attempts = try await PublishOrchestrator.publishDraft(id: draft.id, database: db)
+        #expect(attempts.count == 2)
+        #expect(Set(attempts.compactMap(\.accountId)) == [first.id, second.id])
+        #expect(attempts.first { $0.accountId == first.id }?.status == .success)
+        let failed = try #require(attempts.first { $0.accountId == second.id })
+        #expect(failed.status == .failed)
+
+        AdapterRegistry.mockFailAccountIds = []
+        let retried = try await PublishOrchestrator.retryAttempt(id: failed.id, database: db)
+        #expect(retried.status == .success)
+        #expect(retried.accountId == second.id)
+        #expect(try db.attempts.forDraft(draft.id).first { $0.accountId == first.id }?.status == .success)
+    }
+
+    @Test func removedAccountCannotBeRetriedThroughAnotherAccount() async throws {
+        let db = try AppDatabase.inMemory()
+        AdapterRegistry.useMocks = true
+        AdapterRegistry.mockFail = []
+        let first = try makeTestAccount(db, network: .x, suffix: "one")
+        _ = try makeTestAccount(db, network: .x, suffix: "two")
+        let draft = try db.drafts.create(
+            text: "hello",
+            mediaIds: [],
+            accountIds: [first.id],
+            networks: [.x],
+            overrides: [:]
+        )
+        let attempt = try db.attempts.create(
+            draftId: draft.id,
+            network: .x,
+            accountId: first.id,
+            accountLabelSnapshot: first.accountLabel,
+            textSnapshot: "hello"
+        )
+        try db.attempts.setStatus(id: attempt.id, status: .failed, error: "failed")
+        try db.connections.clear(first.id)
+        await #expect(throws: PublishError.accountUnavailable) {
+            try await PublishOrchestrator.retryAttempt(id: attempt.id, database: db)
+        }
     }
 }
 
@@ -263,24 +353,42 @@ struct GraphPermalinkTests {
             Keychain.store = MacOSKeychainStore()
         }
         let db = try AppDatabase.inMemory()
-        try ConnectionStore.storeOAuth(
+        let threadsAccount = try ConnectionStore.storeOAuth(
             network: .threads,
             tokens: OAuthTokens(accessToken: "tok", refreshToken: nil, expiresAt: nil, meta: ["userId": "1"]),
+            providerAccountId: "1",
             accountLabel: "@me",
             meta: ["userId": "1"],
             database: db
         )
-        try ConnectionStore.storeOAuth(
+        let instagramAccount = try ConnectionStore.storeOAuth(
             network: .instagram,
             tokens: OAuthTokens(accessToken: "ig-tok", refreshToken: nil, expiresAt: nil, meta: ["igUserId": "1"]),
+            providerAccountId: "1",
             accountLabel: "@ig",
             meta: ["igUserId": "1"],
             database: db
         )
-        let draft = try db.drafts.create(text: "hi", mediaIds: [], networks: [.threads, .instagram], overrides: [:])
-        let threads = try db.attempts.create(draftId: draft.id, network: .threads, textSnapshot: "hi")
+        let draft = try db.drafts.create(
+            text: "hi",
+            mediaIds: [],
+            accountIds: [threadsAccount.id, instagramAccount.id],
+            networks: [.threads, .instagram],
+            overrides: [:]
+        )
+        let threads = try db.attempts.create(
+            draftId: draft.id,
+            network: .threads,
+            accountId: threadsAccount.id,
+            textSnapshot: "hi"
+        )
         try db.attempts.setStatus(id: threads.id, status: .success, providerPostId: "1789")
-        let instagram = try db.attempts.create(draftId: draft.id, network: .instagram, textSnapshot: "hi")
+        let instagram = try db.attempts.create(
+            draftId: draft.id,
+            network: .instagram,
+            accountId: instagramAccount.id,
+            textSnapshot: "hi"
+        )
         try db.attempts.setStatus(id: instagram.id, status: .success, providerPostId: "99")
 
         let client = MockHTTPClient([])
@@ -307,22 +415,51 @@ struct GraphPermalinkTests {
             Keychain.store = MacOSKeychainStore()
         }
         let db = try AppDatabase.inMemory()
-        let draft = try db.drafts.create(text: "hi", mediaIds: [], networks: [.threads, .instagram, .x], overrides: [:])
+        let draft = try db.drafts.create(
+            text: "hi",
+            mediaIds: [],
+            accountIds: [],
+            networks: [.threads, .instagram, .x],
+            overrides: [:]
+        )
 
-        let disconnected = try db.attempts.create(draftId: draft.id, network: .threads, textSnapshot: "hi")
+        let disconnectedAccount = try makeTestAccount(
+            db,
+            network: .threads,
+            suffix: "disconnected",
+            state: .disconnected
+        )
+        let disconnected = try db.attempts.create(
+            draftId: draft.id,
+            network: .threads,
+            accountId: disconnectedAccount.id,
+            textSnapshot: "hi"
+        )
         try db.attempts.setStatus(id: disconnected.id, status: .success, providerPostId: "1")
 
-        try ConnectionStore.storeOAuth(
+        let instagramAccount = try ConnectionStore.storeOAuth(
             network: .instagram,
             tokens: OAuthTokens(accessToken: "tok", refreshToken: nil, expiresAt: nil, meta: ["igUserId": "1"]),
+            providerAccountId: "1",
             accountLabel: "@ig",
             meta: ["igUserId": "1"],
             database: db
         )
-        let failed = try db.attempts.create(draftId: draft.id, network: .instagram, textSnapshot: "hi")
+        let failed = try db.attempts.create(
+            draftId: draft.id,
+            network: .instagram,
+            accountId: instagramAccount.id,
+            textSnapshot: "hi"
+        )
         try db.attempts.setStatus(id: failed.id, status: .failed, providerPostId: "2", error: "nope")
 
-        let x = try db.attempts.create(draftId: draft.id, network: .x, textSnapshot: "hi")
+        let xAccount = try makeTestAccount(db, network: .x)
+        let x = try db.attempts.create(
+            draftId: draft.id,
+            network: .x,
+            accountId: xAccount.id,
+            textSnapshot: "hi"
+        )
         try db.attempts.setStatus(id: x.id, status: .success, providerPostId: "3")
 
         let client = MockHTTPClient([.json(["permalink": "https://www.instagram.com/p/should-not-run/"])])

@@ -34,7 +34,12 @@ final class BlatherUITests: XCTestCase {
         editor.click()
         editor.typeText("ui test post \(Int(Date().timeIntervalSince1970))")
 
-        for id in ["destination-x", "destination-bluesky", "destination-instagram"] {
+        for id in [
+            "destination-mock-x",
+            "destination-mock-x-2",
+            "destination-mock-bluesky",
+            "destination-mock-instagram",
+        ] {
             let toggle = app.descendants(matching: .any)[id]
             XCTAssertTrue(toggle.waitForExistence(timeout: 5), "Missing destination control \(id)")
             toggle.click()
@@ -47,7 +52,7 @@ final class BlatherUITests: XCTestCase {
 
         let progress = app.staticTexts["publish-progress"]
         XCTAssertTrue(progress.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.descendants(matching: .any)["publish-progress-instagram"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["publish-progress-mock-instagram"].waitForExistence(timeout: 10))
 
         let done = app.buttons["publish-progress-done"]
         XCTAssertTrue(done.waitForExistence(timeout: 10))
@@ -65,7 +70,7 @@ final class BlatherUITests: XCTestCase {
             app.buttons["History"].click()
         }
 
-        let retry = app.buttons["retry-instagram"]
+        let retry = app.buttons["retry-mock-instagram"]
         XCTAssertTrue(retry.waitForExistence(timeout: 10))
         retry.click()
 
