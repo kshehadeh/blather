@@ -46,8 +46,12 @@ private struct DestinationPreviewCard: View {
 
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(network.title, systemImage: network.systemImage)
-                    .font(.headline)
+                Label {
+                    Text(network.title)
+                } icon: {
+                    NetworkIcon(network: network)
+                }
+                .font(.headline)
                 Spacer()
                 Text("\(resolved.text.count)/\(caps.maxChars)")
                     .font(.caption.monospacedDigit())

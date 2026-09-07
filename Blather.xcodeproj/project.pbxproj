@@ -13,6 +13,7 @@
 		14CA049923036ADA570C8EB5 /* UpdaterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2810BF53B699350EEF587642 /* UpdaterManager.swift */; };
 		196D66E33DF93F52F430241D /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12AB8D330C3B8645A99F3CDD /* AppCommands.swift */; };
 		1AFD475339BF97F59F4622CD /* Schema.swift in Sources */ = {isa = PBXBuildFile; fileRef = C66C044269634CCC84DAC1A1 /* Schema.swift */; };
+		1CA02CF688C435A08DD27AA0 /* NetworkIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = B316BCEAD26B4E0BD389ECC0 /* NetworkIcon.swift */; };
 		1D90B296F61B02007A24D9AA /* ThreadsAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A03F7F490C0B9883B4CB246 /* ThreadsAdapter.swift */; };
 		23CF0005D1DCB7FAB285540A /* PublishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E47607F4ABE061153E12D435 /* PublishTests.swift */; };
 		31738F18C92526AE18F8018A /* GeneralSettingsPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5DE31C30A38BE6DA4BC35D5 /* GeneralSettingsPane.swift */; };
@@ -121,6 +122,7 @@
 		AD563F2018C809584F699031 /* MainSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainSplitView.swift; sourceTree = "<group>"; };
 		AE38E9F798CFA151F92C35D9 /* ConnectService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectService.swift; sourceTree = "<group>"; };
 		AFFC8B658F2EC6CC2B43E881 /* ConnectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectTests.swift; sourceTree = "<group>"; };
+		B316BCEAD26B4E0BD389ECC0 /* NetworkIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkIcon.swift; sourceTree = "<group>"; };
 		BC112B367465D11896AE4DB5 /* BlueskyAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlueskyAdapter.swift; sourceTree = "<group>"; };
 		BEAE9022005149E4E3C24FB9 /* MediaStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaStore.swift; sourceTree = "<group>"; };
 		C66C044269634CCC84DAC1A1 /* Schema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Schema.swift; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 				9F8D33D7387D7506330198B1 /* DestinationInspector.swift */,
 				503ECAD99BAF238029220985 /* HistoryView.swift */,
 				AD563F2018C809584F699031 /* MainSplitView.swift */,
+				B316BCEAD26B4E0BD389ECC0 /* NetworkIcon.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -533,6 +536,7 @@
 				B34DC04E4528D596A7F70223 /* MediaStagingSettingsPane.swift in Sources */,
 				ECAE1C4B98D5F7182D6FA736 /* MediaStore.swift in Sources */,
 				A04844206A3395B320E0C156 /* Models.swift in Sources */,
+				1CA02CF688C435A08DD27AA0 /* NetworkIcon.swift in Sources */,
 				D8F58549C3E1838CB24F51AE /* Orchestrator.swift in Sources */,
 				00BF8C1646A41E1B3D522C19 /* Overrides.swift in Sources */,
 				025DD79357C92A03B70ACF83 /* PKCE.swift in Sources */,
@@ -629,7 +633,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.2.4;
+				MARKETING_VERSION = 0.3.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -717,7 +721,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.2.4;
+				MARKETING_VERSION = 0.3.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

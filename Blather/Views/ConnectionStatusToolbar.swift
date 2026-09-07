@@ -17,7 +17,7 @@ struct ConnectionStatusToolbar: View {
                             Text(connection.state.rawValue.capitalized)
                         }
                     } icon: {
-                        Image(systemName: connection.network.systemImage)
+                        NetworkIcon(network: connection.network)
                     }
                 }
             }

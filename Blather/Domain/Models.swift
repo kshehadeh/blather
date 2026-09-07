@@ -17,12 +17,12 @@ enum Network: String, CaseIterable, Identifiable, Codable, Hashable, Sendable {
         }
     }
 
-    var systemImage: String {
+    var imageName: String {
         switch self {
-        case .x: "bubble.left.and.bubble.right"
-        case .bluesky: "cloud"
-        case .threads: "text.bubble"
-        case .instagram: "camera"
+        case .x: "NetworkX"
+        case .bluesky: "NetworkBluesky"
+        case .threads: "NetworkThreads"
+        case .instagram: "NetworkInstagram"
         }
     }
 }

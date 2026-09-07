@@ -134,9 +134,8 @@ private struct AccountSection: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 10)
-                    Image(systemName: network.systemImage)
+                    NetworkIcon(network: network)
                         .foregroundStyle(.secondary)
-                        .frame(width: 16)
                     Text(network.title)
                 }
             }
