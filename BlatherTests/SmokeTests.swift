@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 @testable import Blather
 
@@ -42,5 +43,14 @@ struct SmokeTests {
         nav.clearAccountFocus()
         #expect(nav.focusedNetwork == nil)
         #expect(nav.focusGeneration == start + 3)
+    }
+
+    @Test func networksHaveBrandImages() {
+        let names = Network.allCases.map(\.imageName)
+        #expect(Set(names).count == names.count)
+        for network in Network.allCases {
+            #expect(!network.imageName.isEmpty)
+            #expect(NSImage(named: NSImage.Name(network.imageName)) != nil)
+        }
     }
 }

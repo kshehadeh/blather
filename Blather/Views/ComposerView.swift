@@ -154,7 +154,11 @@ struct ComposerView: View {
             HStack(spacing: 8) {
                 ForEach(Network.allCases) { network in
                     Toggle(isOn: networkBinding(network)) {
-                        Label(network.title, systemImage: network.systemImage)
+                        Label {
+                            Text(network.title)
+                        } icon: {
+                            NetworkIcon(network: network)
+                        }
                     }
                     .toggleStyle(.button)
                     .accessibilityIdentifier("destination-\(network.rawValue)")

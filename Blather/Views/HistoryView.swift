@@ -36,8 +36,11 @@ private struct HistoryRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             StatusBadge(status: attempt.status)
             VStack(alignment: .leading, spacing: 4) {
-                Text(attempt.network.title)
-                    .font(.headline)
+                HStack(spacing: 6) {
+                    NetworkIcon(network: attempt.network)
+                    Text(attempt.network.title)
+                        .font(.headline)
+                }
                 if !attempt.textSnapshot.isEmpty {
                     Text(attempt.textSnapshot)
                         .lineLimit(2)
