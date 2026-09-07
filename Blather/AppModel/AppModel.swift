@@ -462,6 +462,15 @@ final class DraftSession {
         overrides = networks.count > 1 ? draft.overrides : [:]
     }
 
+    var hasChanges: Bool {
+        draftId != nil
+            || !text.isEmpty
+            || !media.isEmpty
+            || !networks.isEmpty
+            || !overrides.isEmpty
+            || !lastAttempts.isEmpty
+    }
+
     var showsDestinationOverrides: Bool { networks.count > 1 }
 
     func setNetwork(_ network: Network, enabled: Bool) {

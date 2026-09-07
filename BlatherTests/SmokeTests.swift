@@ -16,6 +16,45 @@ struct SmokeTests {
         #expect(!Capabilities.capabilities(for: .x).requiresMedia)
     }
 
+    @Test func draftSessionHasNoChangesUntilEdited() {
+        let session = DraftSession()
+        #expect(!session.hasChanges)
+
+        session.text = "hello"
+        #expect(session.hasChanges)
+
+        session.text = ""
+        #expect(!session.hasChanges)
+
+        session.networks = [.x]
+        #expect(session.hasChanges)
+
+        session.networks = []
+        session.overrides[.x] = NetworkOverride(text: "override", mediaIds: nil)
+        #expect(session.hasChanges)
+
+        session.overrides = [:]
+        session.draftId = "d1"
+        #expect(session.hasChanges)
+    }
+
+    @Test @MainActor func discardDraftClearsComposerChanges() throws {
+        let db = try AppDatabase.inMemory()
+        let model = AppModel(database: db)
+        #expect(!model.session.hasChanges)
+
+        model.session.text = "hello"
+        model.session.networks = [.x]
+        model.saveDraft()
+        #expect(model.session.hasChanges)
+        #expect(model.session.draftId != nil)
+
+        model.discardDraft()
+        #expect(!model.session.hasChanges)
+        #expect(model.session.draftId == nil)
+        #expect(model.drafts.isEmpty)
+    }
+
     @Test func draftSessionWarnsOnOverLimit() {
         let session = DraftSession()
         session.text = String(repeating: "x", count: 281)

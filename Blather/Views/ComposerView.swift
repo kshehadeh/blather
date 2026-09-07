@@ -207,6 +207,8 @@ struct ComposerView: View {
             Button("Discard", role: .destructive) {
                 appModel.confirmDiscard = true
             }
+            .disabled(!appModel.session.hasChanges)
+            .accessibilityIdentifier("discard")
         }
         .controlSize(.large)
         .padding(.top, 4)

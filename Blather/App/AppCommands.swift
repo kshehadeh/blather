@@ -31,9 +31,7 @@ struct AppCommands: Commands {
 
             Divider()
 
-            Button("Discard Draft") {
-                AppModel.shared.confirmDiscard = true
-            }
+            DiscardDraftCommand()
 
             Divider()
 
@@ -65,6 +63,17 @@ struct AppCommands: Commands {
         CommandGroup(after: .help) {
             CheckForUpdatesButton()
         }
+    }
+}
+
+private struct DiscardDraftCommand: View {
+    private var appModel = AppModel.shared
+
+    var body: some View {
+        Button("Discard Draft") {
+            appModel.confirmDiscard = true
+        }
+        .disabled(!appModel.session.hasChanges)
     }
 }
 
