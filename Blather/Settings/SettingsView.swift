@@ -34,8 +34,19 @@ final class SettingsNavigation {
     static let shared = SettingsNavigation()
 
     var selectedTab: SettingsTab? = .accounts
+    private(set) var focusedNetwork: Network?
+    private(set) var focusGeneration: UInt = 0
 
     private init() {}
+
+    func focusAccount(_ network: Network) {
+        focusedNetwork = network
+        focusGeneration += 1
+    }
+
+    func clearAccountFocus() {
+        focusedNetwork = nil
+    }
 }
 
 private enum AppVersion {
