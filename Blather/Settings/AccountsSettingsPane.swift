@@ -63,10 +63,6 @@ private struct AccountSection: View {
             headerRow
 
             if isExpanded {
-                LabeledContent("Status") {
-                    Text(connection.state.rawValue.capitalized)
-                        .foregroundStyle(connection.state == .error ? .red : .secondary)
-                }
                 if let label = connection.accountLabel {
                     LabeledContent("Account", value: label)
                 }
