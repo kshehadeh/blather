@@ -190,17 +190,17 @@ private struct AccountSection: View {
 
     @ViewBuilder
     private var credentialFields: some View {
-        let keepPrompt = !isDisconnected
+        let hasSecret = !isDisconnected && appModel.accountSettings(for: network).hasStoredSecret
         switch network {
         case .x:
             TextField("Client ID", text: $clientId)
         case .bluesky:
             TextField("PDS", text: $pds)
             TextField("Handle", text: $handle)
-            SecureField(keepPrompt ? "stored — leave blank to keep" : "App password", text: $appPassword)
+            StoredSecretField("App password", text: $appPassword, hasStoredSecret: hasSecret)
         case .threads, .instagram:
             TextField("App ID", text: $clientId)
-            SecureField(keepPrompt ? "stored — leave blank to keep" : "App Secret", text: $clientSecret)
+            StoredSecretField("App Secret", text: $clientSecret, hasStoredSecret: hasSecret)
             Button("Where do I find the App ID and App Secret?") {
                 showingHelp = true
             }

@@ -10,6 +10,7 @@
 		00BF8C1646A41E1B3D522C19 /* Overrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47506723F8DCA3581E5B301E /* Overrides.swift */; };
 		025DD79357C92A03B70ACF83 /* PKCE.swift in Sources */ = {isa = PBXBuildFile; fileRef = F15E43D725AC1375592E096B /* PKCE.swift */; };
 		0D4E09FA930EE9BFB03B4A39 /* ConnectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7E0AA37B99BD42FD938A4D /* ConnectionStore.swift */; };
+		1281E89EE5DAA333B680D4FF /* StoredSecretField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE3B8E44DF17BDB4242DA7A /* StoredSecretField.swift */; };
 		14CA049923036ADA570C8EB5 /* UpdaterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2810BF53B699350EEF587642 /* UpdaterManager.swift */; };
 		196D66E33DF93F52F430241D /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12AB8D330C3B8645A99F3CDD /* AppCommands.swift */; };
 		1AFD475339BF97F59F4622CD /* Schema.swift in Sources */ = {isa = PBXBuildFile; fileRef = C66C044269634CCC84DAC1A1 /* Schema.swift */; };
@@ -47,6 +48,7 @@
 		BC58555F6020D0CCDF4A6E8E /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F857D6762B40E7D7B68B674 /* SettingsWindowController.swift */; };
 		C144E42F17189779843545A4 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60DF60A78384B9B25714588C /* Redaction.swift */; };
 		C4C4BF88F194A0A5FEC207BB /* SigV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3967C8AB82F6FA19129444A /* SigV4.swift */; };
+		CCE8D9C7C99F46716BABE61B /* StoredSecretFieldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2375BFD0259ED0893E0832EF /* StoredSecretFieldTests.swift */; };
 		CD12AD66E6DD13257037A278 /* InstagramAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F602B0ADACAE328CF3B5C3A4 /* InstagramAdapter.swift */; };
 		D08CDD9EBB82303B18202FB5 /* PersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D8DC8D148615D6B3416225 /* PersistenceTests.swift */; };
 		D42BA31964B6879BE1330B80 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = D1C83E73B83326333074C430 /* GRDB */; };
@@ -83,12 +85,14 @@
 
 /* Begin PBXFileReference section */
 		04BBDBE59543E998A3922B3A /* BlatherUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlatherUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AE3B8E44DF17BDB4242DA7A /* StoredSecretField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredSecretField.swift; sourceTree = "<group>"; };
 		0F857D6762B40E7D7B68B674 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		128314124E5F4897C8897637 /* Credentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Credentials.swift; sourceTree = "<group>"; };
 		12AB8D330C3B8645A99F3CDD /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
 		1827DA37EA5DEB36C9218E98 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
 		1D33874353252324AD9BB45B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1EA92330120635C0723D4D2D /* BlatherTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlatherTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2375BFD0259ED0893E0832EF /* StoredSecretFieldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredSecretFieldTests.swift; sourceTree = "<group>"; };
 		2478C11E76DD9A612721042F /* Blather.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Blather.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		265D8953F178218619F774D7 /* AppPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPaths.swift; sourceTree = "<group>"; };
 		2810BF53B699350EEF587642 /* UpdaterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterManager.swift; sourceTree = "<group>"; };
@@ -174,6 +178,7 @@
 				C6BB4B865203B266C509778F /* MediaStagingSettingsPane.swift */,
 				533F68117C958B61D7379E2A /* SettingsView.swift */,
 				0F857D6762B40E7D7B68B674 /* SettingsWindowController.swift */,
+				0AE3B8E44DF17BDB4242DA7A /* StoredSecretField.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -291,6 +296,7 @@
 				37D8DC8D148615D6B3416225 /* PersistenceTests.swift */,
 				E47607F4ABE061153E12D435 /* PublishTests.swift */,
 				38CB3312CD3852105D439EE3 /* SmokeTests.swift */,
+				2375BFD0259ED0893E0832EF /* StoredSecretFieldTests.swift */,
 			);
 			path = BlatherTests;
 			sourceTree = "<group>";
@@ -501,6 +507,7 @@
 				D08CDD9EBB82303B18202FB5 /* PersistenceTests.swift in Sources */,
 				23CF0005D1DCB7FAB285540A /* PublishTests.swift in Sources */,
 				B8E6847A274CEFFE90DBE83E /* SmokeTests.swift in Sources */,
+				CCE8D9C7C99F46716BABE61B /* StoredSecretFieldTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -548,6 +555,7 @@
 				87F3FADDA89A010D4066B875 /* SettingsView.swift in Sources */,
 				BC58555F6020D0CCDF4A6E8E /* SettingsWindowController.swift in Sources */,
 				C4C4BF88F194A0A5FEC207BB /* SigV4.swift in Sources */,
+				1281E89EE5DAA333B680D4FF /* StoredSecretField.swift in Sources */,
 				6FC71BDF8DBA4C426A656EDD /* TLSIdentity.swift in Sources */,
 				1D90B296F61B02007A24D9AA /* ThreadsAdapter.swift in Sources */,
 				D678DE4DFC89E4A627D9198B /* TokenAccess.swift in Sources */,

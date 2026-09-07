@@ -39,7 +39,7 @@ struct MediaStagingSettingsPane: View {
                 .pickerStyle(.menu)
                 TextField("Public R2 bucket URL", text: $publicBaseUrl)
                 TextField(r2.hasCredentials ? "Access key ID (leave blank to keep)" : "R2 access key ID", text: $accessKeyId)
-                SecureField(r2.hasCredentials ? "Secret (leave blank to keep)" : "R2 secret access key", text: $secretAccessKey)
+                StoredSecretField("R2 secret access key", text: $secretAccessKey, hasStoredSecret: r2.hasCredentials)
                 Text("Never stored in the local database.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
