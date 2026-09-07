@@ -167,6 +167,8 @@ private struct AccountEditor: View {
                         ConnectionStateBadge(state: account.state)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -208,18 +210,67 @@ private struct AccountEditor: View {
         let hasSecret = storedSettings.hasStoredSecret
         switch network {
         case .x:
-            TextField("Client ID", text: $clientId)
+            guidedTextField(
+                "Client ID",
+                text: $clientId,
+                guidance: AccountFieldGuidance.xClientId
+            )
         case .bluesky:
-            TextField("PDS", text: $pds)
-            TextField("Handle", text: $handle)
-            StoredSecretField("App password", text: $appPassword, hasStoredSecret: hasSecret)
+            guidedTextField(
+                "PDS",
+                text: $pds,
+                guidance: AccountFieldGuidance.blueskyPDS
+            )
+            guidedTextField(
+                "Handle",
+                text: $handle,
+                guidance: AccountFieldGuidance.blueskyHandle
+            )
+            guidedSecretField(
+                "App password",
+                text: $appPassword,
+                hasStoredSecret: hasSecret,
+                guidance: AccountFieldGuidance.blueskyAppPassword
+            )
         case .threads, .instagram:
-            TextField("App ID", text: $clientId)
-            StoredSecretField("App Secret", text: $clientSecret, hasStoredSecret: hasSecret)
+            guidedTextField(
+                "App ID",
+                text: $clientId,
+                guidance: AccountFieldGuidance.metaAppId(for: network)
+            )
+            guidedSecretField(
+                "App Secret",
+                text: $clientSecret,
+                hasStoredSecret: hasSecret,
+                guidance: AccountFieldGuidance.metaAppSecret(for: network)
+            )
             Button("Where do I find the App ID and App Secret?") {
                 showingHelp = true
             }
             .buttonStyle(.link)
+        }
+    }
+
+    private func guidedTextField(
+        _ title: String,
+        text: Binding<String>,
+        guidance: AccountFieldGuidance
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            TextField(title, text: text, prompt: Text(guidance.example))
+            AccountFieldHint(guidance: guidance)
+        }
+    }
+
+    private func guidedSecretField(
+        _ title: String,
+        text: Binding<String>,
+        hasStoredSecret: Bool,
+        guidance: AccountFieldGuidance
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            StoredSecretField(title, text: text, hasStoredSecret: hasStoredSecret)
+            AccountFieldHint(guidance: guidance)
         }
     }
 
@@ -302,6 +353,76 @@ private struct AccountEditor: View {
     }
 }
 
+struct AccountFieldGuidance: Equatable {
+    var example: String
+    var help: String
+
+    static let xClientId = AccountFieldGuidance(
+        example: "e.g. abc123ExampleClientId",
+        help: "Copy the OAuth 2.0 Client ID from X Developer Portal. Do not use the API Key, App ID, client secret, or bearer token."
+    )
+
+    static let blueskyPDS = AccountFieldGuidance(
+        example: "e.g. https://bsky.social",
+        help: "Use https://bsky.social unless your account provider gave you a custom PDS server URL."
+    )
+
+    static let blueskyHandle = AccountFieldGuidance(
+        example: "e.g. alice.bsky.social",
+        help: "Enter the handle shown on your Bluesky profile without @, such as alice.bsky.social or alice.example.com. Do not enter an email address such as alice@example.com."
+    )
+
+    static let blueskyAppPassword = AccountFieldGuidance(
+        example: "e.g. xxxx-xxxx-xxxx-xxxx",
+        help: "Create an app password in Bluesky Settings, Privacy and security, App passwords. Do not use your normal account password."
+    )
+
+    static func metaAppId(for network: Network) -> AccountFieldGuidance {
+        switch network {
+        case .threads:
+            AccountFieldGuidance(
+                example: "e.g. 123456789012345",
+                help: "Copy the App ID from the Meta developer app configured for the Threads API."
+            )
+        case .instagram:
+            AccountFieldGuidance(
+                example: "e.g. 123456789012345",
+                help: "Copy the Instagram App ID from the Instagram product's API setup in Meta for Developers."
+            )
+        case .x, .bluesky:
+            preconditionFailure("Meta guidance is only available for Threads and Instagram")
+        }
+    }
+
+    static func metaAppSecret(for network: Network) -> AccountFieldGuidance {
+        switch network {
+        case .threads:
+            AccountFieldGuidance(
+                example: "Example: the secret shown beside your App ID",
+                help: "Reveal and copy App Secret from the same Meta developer app. This is not an access token or your social account password."
+            )
+        case .instagram:
+            AccountFieldGuidance(
+                example: "Example: the secret shown beside your Instagram App ID",
+                help: "Reveal and copy Instagram App Secret from the Instagram product setup. This is not an access token or your Instagram password."
+            )
+        case .x, .bluesky:
+            preconditionFailure("Meta guidance is only available for Threads and Instagram")
+        }
+    }
+}
+
+private struct AccountFieldHint: View {
+    let guidance: AccountFieldGuidance
+
+    var body: some View {
+        Text("\(guidance.example). \(guidance.help)")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
 private struct ConnectionStateBadge: View {
     let state: ConnectionState
 
@@ -339,6 +460,21 @@ private struct MetaCredentialsHelp: View {
         "\(OAuthCallbackServer.origin)/api/connect/\(network.rawValue)/callback"
     }
 
+    private var appIdSource: String {
+        switch network {
+        case .threads:
+            "In the left navigation, open App settings, then Basic."
+        case .instagram:
+            "In the left navigation, open the Instagram product, then API setup with Instagram login."
+        case .x, .bluesky:
+            ""
+        }
+    }
+
+    private var credentialNames: String {
+        network == .instagram ? "Instagram App ID and Instagram App Secret" : "App ID and App Secret"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Find your \(network.title) app credentials")
@@ -347,8 +483,8 @@ private struct MetaCredentialsHelp: View {
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 10) {
                 labeled(1, "Go to Meta for Developers, My Apps, then select the app configured for \(network.title).")
-                labeled(2, "In the left navigation, open App settings, then Basic.")
-                labeled(3, "Copy App ID. For App Secret, select Show, then copy the revealed value.")
+                labeled(2, appIdSource)
+                labeled(3, "Copy \(credentialNames). For the secret, select Show, then copy the revealed value.")
                 labeled(4, "Paste both values here. Also ensure this OAuth redirect URI is configured: \(callbackURL)")
             }
             Link("Open Meta for Developers", destination: URL(string: "https://developers.facebook.com/apps/")!)

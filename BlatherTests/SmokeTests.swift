@@ -134,4 +134,21 @@ struct SmokeTests {
             #expect(NSImage(named: NSImage.Name(network.imageName)) != nil)
         }
     }
+
+    @Test func accountFieldsExplainExpectedValues() {
+        let guidance = [
+            AccountFieldGuidance.xClientId,
+            AccountFieldGuidance.blueskyPDS,
+            AccountFieldGuidance.blueskyHandle,
+            AccountFieldGuidance.blueskyAppPassword,
+            AccountFieldGuidance.metaAppId(for: .threads),
+            AccountFieldGuidance.metaAppSecret(for: .threads),
+            AccountFieldGuidance.metaAppId(for: .instagram),
+            AccountFieldGuidance.metaAppSecret(for: .instagram),
+        ]
+        #expect(guidance.allSatisfy { !$0.example.isEmpty && !$0.help.isEmpty })
+        #expect(AccountFieldGuidance.blueskyHandle.example.contains("alice.bsky.social"))
+        #expect(AccountFieldGuidance.blueskyHandle.help.contains("alice@example.com"))
+        #expect(AccountFieldGuidance.blueskyAppPassword.help.contains("normal account password"))
+    }
 }

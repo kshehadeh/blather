@@ -51,7 +51,9 @@ your profile URL or handle.
 2. Open the **Accounts** tab and find the **Bluesky** section.
 3. Select **Add Account…**.
 4. Enter the PDS. Leave `https://bsky.social` unless you use a custom PDS URL.
-5. Enter your handle without `@` in **Handle**.
+5. Enter your handle without `@` in **Handle**, for example `alice.bsky.social` or
+   `alice.example.com`. A handle is domain-shaped; do not enter an email address such as
+   `alice@example.com`.
 6. Paste the generated password into **App password**.
 7. Select **Connect Account**.
 8. Confirm that the section shows the correct `@handle` and shows **connected**.
