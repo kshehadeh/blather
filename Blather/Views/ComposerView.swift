@@ -201,7 +201,7 @@ struct ComposerView: View {
                 appModel.publish()
             }
             .keyboardShortcut(.return, modifiers: .command)
-            .disabled(appModel.session.networks.isEmpty)
+            .disabled(appModel.session.networks.isEmpty || appModel.isBusy)
             .buttonStyle(.borderedProminent)
             .accessibilityIdentifier("publish")
             Button("Discard", role: .destructive) {

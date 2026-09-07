@@ -45,6 +45,81 @@ struct PublishTests {
         }
     }
 
+    @Test @MainActor func publishDraftReportsProgress() async throws {
+        let db = try AppDatabase.inMemory()
+        AdapterRegistry.useMocks = true
+        AdapterRegistry.mockFail = [.instagram]
+        let media = try db.media.create(
+            kind: .image,
+            mimeType: "image/jpeg",
+            name: "a.jpg",
+            size: 1024,
+            path: "a.jpg"
+        )
+        let draft = try db.drafts.create(
+            text: "hello world",
+            mediaIds: [media.id],
+            networks: [.x, .instagram],
+            overrides: [:]
+        )
+        var updates: [(Network, AttemptStatus)] = []
+        let attempts = try await PublishOrchestrator.publishDraft(id: draft.id, database: db) { attempt in
+            updates.append((attempt.network, attempt.status))
+        }
+        #expect(attempts.count == 2)
+        #expect(updates.contains { $0 == (.x, .pending) })
+        #expect(updates.contains { $0 == (.x, .publishing) })
+        #expect(updates.contains { $0 == (.x, .success) })
+        #expect(updates.contains { $0 == (.instagram, .pending) })
+        #expect(updates.contains { $0 == (.instagram, .publishing) })
+        #expect(updates.contains { $0 == (.instagram, .failed) })
+        #expect(attempts.first { $0.network == .instagram }?.error != nil)
+    }
+
+    @Test @MainActor func appModelPublishFillsProgressThenFinishes() async throws {
+        AdapterRegistry.useMocks = true
+        AdapterRegistry.mockFail = [.instagram]
+        let db = try AppDatabase.inMemory()
+        let model = AppModel(database: db)
+        model.session.text = "hello world"
+        model.session.networks = [.x, .instagram]
+        model.publish()
+        for _ in 0..<100 {
+            if model.publishProgress?.isFinished == true { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let progress = try #require(model.publishProgress)
+        #expect(progress.isFinished)
+        #expect(progress.items.first { $0.network == .x }?.status == .success)
+        #expect(progress.items.first { $0.network == .instagram }?.status == .failed)
+        #expect(progress.items.first { $0.network == .instagram }?.error != nil)
+        #expect(progress.title == "Published with errors")
+    }
+
+    @Test @MainActor func publishProgressMarksInFlightItemsFailed() {
+        let progress = PublishProgress(networks: [.x, .bluesky])
+        progress.update(
+            PublishAttempt(
+                id: "1",
+                draftId: "d",
+                network: .x,
+                status: .success,
+                providerPostId: "p",
+                providerPostUrl: nil,
+                error: nil,
+                textSnapshot: "hi",
+                createdAt: "",
+                updatedAt: ""
+            )
+        )
+        progress.fail("Draft not found")
+        #expect(progress.isFinished)
+        #expect(progress.items.first { $0.network == .x }?.status == .success)
+        #expect(progress.items.first { $0.network == .bluesky }?.status == .failed)
+        #expect(progress.items.first { $0.network == .bluesky }?.error == "Draft not found")
+        #expect(progress.title == "Published with errors")
+    }
+
     @Test func recoveryMarksStuckPublishingFailed() throws {
         let db = try AppDatabase.inMemory()
         let draft = try db.drafts.create(text: "stuck", mediaIds: [], networks: [.x], overrides: [:])

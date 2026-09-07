@@ -30,6 +30,7 @@ struct HistoryView: View {
 }
 
 private struct HistoryRow: View {
+    @Environment(AppModel.self) private var appModel
     let attempt: PublishAttempt
 
     var body: some View {
@@ -64,8 +65,9 @@ private struct HistoryRow: View {
             }
             if attempt.status == .failed {
                 Button("Retry") {
-                    AppModel.shared.retryAttempt(id: attempt.id)
+                    appModel.retryAttempt(id: attempt.id)
                 }
+                .disabled(appModel.isBusy)
                 .accessibilityIdentifier("retry-\(attempt.network.rawValue)")
             }
         }

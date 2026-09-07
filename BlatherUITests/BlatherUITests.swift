@@ -45,8 +45,18 @@ final class BlatherUITests: XCTestCase {
         XCTAssertTrue(publish.isEnabled)
         publish.click()
 
+        let progress = app.staticTexts["publish-progress"]
+        XCTAssertTrue(progress.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["publish-progress-instagram"].waitForExistence(timeout: 10))
+
+        let done = app.buttons["publish-progress-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10))
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: done)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 15), .completed)
+        done.click()
+
         let results = app.staticTexts["publish-results"]
-        XCTAssertTrue(results.waitForExistence(timeout: 15))
+        XCTAssertTrue(results.waitForExistence(timeout: 10))
 
         let historyItem = app.descendants(matching: .any)["sidebar-history"]
         if historyItem.waitForExistence(timeout: 5) {
@@ -58,6 +68,15 @@ final class BlatherUITests: XCTestCase {
         let retry = app.buttons["retry-instagram"]
         XCTAssertTrue(retry.waitForExistence(timeout: 10))
         retry.click()
+
+        let retryDone = app.buttons["publish-progress-done"]
+        XCTAssertTrue(retryDone.waitForExistence(timeout: 10))
+        let retryEnabled = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "isEnabled == true"),
+            object: retryDone
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [retryEnabled], timeout: 15), .completed)
+        retryDone.click()
         XCTAssertTrue(retry.waitForExistence(timeout: 10))
     }
 

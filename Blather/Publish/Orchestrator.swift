@@ -3,7 +3,11 @@ import Foundation
 enum PublishOrchestrator {
     static let concurrency = 3
 
-    static func publishDraft(id draftId: String, database: AppDatabase) async throws -> [PublishAttempt] {
+    static func publishDraft(
+        id draftId: String,
+        database: AppDatabase,
+        onUpdate: (@MainActor @Sendable (PublishAttempt) -> Void)? = nil
+    ) async throws -> [PublishAttempt] {
         guard let draft = try database.drafts.get(draftId) else {
             throw PublishError.draftNotFound
         }
@@ -15,10 +19,21 @@ enum PublishOrchestrator {
         let created = try draft.networks.map { network in
             try database.attempts.create(draftId: draftId, network: network, textSnapshot: draft.text)
         }
+        for attempt in created {
+            if let onUpdate {
+                await onUpdate(attempt)
+            }
+        }
         return await withTaskGroup(of: (Int, PublishAttempt).self) { group in
             for (index, attempt) in created.enumerated() {
                 group.addTask {
-                    let result = await runAttempt(attempt, draft: draft, mediaById: mediaById, database: database)
+                    let result = await runAttempt(
+                        attempt,
+                        draft: draft,
+                        mediaById: mediaById,
+                        database: database,
+                        onUpdate: onUpdate
+                    )
                     return (index, result)
                 }
             }
@@ -30,7 +45,11 @@ enum PublishOrchestrator {
         }
     }
 
-    static func retryAttempt(id attemptId: String, database: AppDatabase) async throws -> PublishAttempt {
+    static func retryAttempt(
+        id attemptId: String,
+        database: AppDatabase,
+        onUpdate: (@MainActor @Sendable (PublishAttempt) -> Void)? = nil
+    ) async throws -> PublishAttempt {
         guard let attempt = try database.attempts.get(attemptId) else {
             throw PublishError.attemptNotFound
         }
@@ -42,7 +61,13 @@ enum PublishOrchestrator {
         }
         let mediaItems = try database.media.byIds(allMediaIds(draft))
         let mediaById = Dictionary(uniqueKeysWithValues: mediaItems.map { ($0.id, $0) })
-        return await runAttempt(attempt, draft: draft, mediaById: mediaById, database: database)
+        return await runAttempt(
+            attempt,
+            draft: draft,
+            mediaById: mediaById,
+            database: database,
+            onUpdate: onUpdate
+        )
     }
 
     static func recoverInterrupted(database: AppDatabase) throws {
@@ -91,10 +116,12 @@ enum PublishOrchestrator {
         _ attempt: PublishAttempt,
         draft: Draft,
         mediaById: [String: MediaItem],
-        database: AppDatabase
+        database: AppDatabase,
+        onUpdate: (@MainActor @Sendable (PublishAttempt) -> Void)? = nil
     ) async -> PublishAttempt {
         let adapter = AdapterRegistry.adapter(for: attempt.network, database: database)
         try? database.attempts.setStatus(id: attempt.id, status: .publishing)
+        await report(attempt.id, database: database, fallback: attempt, onUpdate: onUpdate)
         do {
             let content = Overrides.resolveContent(
                 text: draft.text,
@@ -121,7 +148,21 @@ enum PublishOrchestrator {
                 error: adapter.normalizeError(error)
             )
         }
-        return (try? database.attempts.get(attempt.id)) ?? attempt
+        return await report(attempt.id, database: database, fallback: attempt, onUpdate: onUpdate)
+    }
+
+    @discardableResult
+    private static func report(
+        _ id: String,
+        database: AppDatabase,
+        fallback: PublishAttempt,
+        onUpdate: (@MainActor @Sendable (PublishAttempt) -> Void)?
+    ) async -> PublishAttempt {
+        let current = (try? database.attempts.get(id)) ?? fallback
+        if let onUpdate {
+            await onUpdate(current)
+        }
+        return current
     }
 
     private static func allMediaIds(_ draft: Draft) -> [String] {

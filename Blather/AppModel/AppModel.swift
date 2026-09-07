@@ -29,6 +29,7 @@ final class AppModel {
 
     var statusMessage: String?
     var isBusy = false
+    var publishProgress: PublishProgress?
     let database: AppDatabase
     private var permalinkBackfillTask: Task<Void, Never>?
 
@@ -105,13 +106,20 @@ final class AppModel {
     }
 
     func publish() {
+        let networks = Network.allCases.filter { session.networks.contains($0) }
+        let progress = startPublishProgress(networks: networks)
         isBusy = true
         Task {
-            defer { isBusy = false }
+            defer { finishPublishProgress() }
             do {
                 saveDraft()
-                guard let id = session.draftId else { return }
-                let attempts = try await PublishOrchestrator.publishDraft(id: id, database: database)
+                guard let id = session.draftId else {
+                    failPublishProgress("Could not save draft")
+                    return
+                }
+                let attempts = try await PublishOrchestrator.publishDraft(id: id, database: database) { attempt in
+                    progress.update(attempt)
+                }
                 session.lastAttempts = attempts
                 reload()
                 let failed = attempts.filter { $0.status == .failed }.count
@@ -119,22 +127,56 @@ final class AppModel {
                     ? "Published everywhere"
                     : "\(attempts.count - failed) succeeded, \(failed) failed (see History to retry)"
             } catch {
+                failPublishProgress(error.localizedDescription)
                 statusMessage = error.localizedDescription
             }
         }
     }
 
     func retryAttempt(id: String) {
+        let network = (try? database.attempts.get(id))?.network
+        let progress = startPublishProgress(networks: network.map { [$0] } ?? [])
         isBusy = true
         Task {
-            defer { isBusy = false }
+            defer { finishPublishProgress() }
             do {
-                _ = try await PublishOrchestrator.retryAttempt(id: id, database: database)
+                _ = try await PublishOrchestrator.retryAttempt(id: id, database: database) { attempt in
+                    progress.update(attempt)
+                }
                 reload()
                 statusMessage = "Retry finished"
             } catch {
+                failPublishProgress(error.localizedDescription)
                 statusMessage = error.localizedDescription
             }
+        }
+    }
+
+    func dismissPublishProgress() {
+        publishProgress = nil
+    }
+
+    @discardableResult
+    private func startPublishProgress(networks: [Network]) -> PublishProgress {
+        let labels = Dictionary(uniqueKeysWithValues: connections.compactMap { connection -> (Network, String)? in
+            guard let label = connection.accountLabel else { return nil }
+            return (connection.network, label)
+        })
+        let progress = PublishProgress(networks: networks, accountLabels: labels)
+        publishProgress = progress
+        return progress
+    }
+
+    private func finishPublishProgress() {
+        isBusy = false
+        publishProgress?.finish()
+    }
+
+    private func failPublishProgress(_ message: String) {
+        if let publishProgress {
+            publishProgress.fail(message)
+        } else {
+            statusMessage = message
         }
     }
 

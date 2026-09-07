@@ -54,7 +54,7 @@ struct MainSplitView: View {
                     Label("Publish", systemImage: "paperplane")
                 }
                 .help("Publish")
-                .disabled(appModel.session.networks.isEmpty || appModel.selectedSidebar != .compose)
+                .disabled(appModel.session.networks.isEmpty || appModel.selectedSidebar != .compose || appModel.isBusy)
 
                 Button {
                     appModel.showInspector.toggle()
@@ -66,6 +66,11 @@ struct MainSplitView: View {
 
             ToolbarItem(placement: .automatic) {
                 ConnectionStatusToolbar()
+            }
+        }
+        .sheet(item: $appModel.publishProgress) { progress in
+            PublishProgressSheet(progress: progress) {
+                appModel.dismissPublishProgress()
             }
         }
         .confirmationDialog(
