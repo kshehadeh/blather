@@ -94,6 +94,34 @@ struct PublishTests {
         #expect(progress.items.first { $0.network == .instagram }?.status == .failed)
         #expect(progress.items.first { $0.network == .instagram }?.error != nil)
         #expect(progress.title == "Published with errors")
+        #expect(model.session.text == "hello world")
+        #expect(model.session.networks == [.x, .instagram])
+        #expect(model.session.lastAttempts.count == 2)
+    }
+
+    @Test @MainActor func appModelPublishResetsComposerOnSuccess() async throws {
+        AdapterRegistry.useMocks = true
+        AdapterRegistry.mockFail = []
+        let db = try AppDatabase.inMemory()
+        let model = AppModel(database: db)
+        model.session.text = "hello world"
+        model.session.networks = [.x, .bluesky]
+        model.session.overrides[.x] = NetworkOverride(text: "x copy", mediaIds: nil)
+        model.publish()
+        for _ in 0..<100 {
+            if model.publishProgress?.isFinished == true { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let progress = try #require(model.publishProgress)
+        #expect(progress.isFinished)
+        #expect(progress.title == "Published")
+        #expect(model.session.text.isEmpty)
+        #expect(model.session.networks.isEmpty)
+        #expect(model.session.media.isEmpty)
+        #expect(model.session.overrides.isEmpty)
+        #expect(model.session.lastAttempts.isEmpty)
+        #expect(model.session.draftId == nil)
+        #expect(model.statusMessage == "Published everywhere")
     }
 
     @Test @MainActor func publishProgressMarksInFlightItemsFailed() {

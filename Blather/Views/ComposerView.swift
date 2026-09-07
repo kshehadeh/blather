@@ -12,7 +12,7 @@ struct ComposerView: View {
                 postEditor
                 mediaSection
                 destinations
-                if !session.networks.isEmpty {
+                if session.showsDestinationOverrides {
                     overrides
                 }
                 actions
@@ -245,12 +245,7 @@ struct ComposerView: View {
         Binding(
             get: { appModel.session.networks.contains(network) },
             set: { isOn in
-                if isOn {
-                    appModel.session.networks.insert(network)
-                } else {
-                    appModel.session.networks.remove(network)
-                    appModel.session.overrides[network] = nil
-                }
+                appModel.session.setNetwork(network, enabled: isOn)
             }
         )
     }

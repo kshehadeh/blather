@@ -24,6 +24,42 @@ struct SmokeTests {
         #expect(warnings.contains { $0.contains("over limit") })
     }
 
+    @Test func draftSessionHidesOverridesWhenOnlyOneDestination() {
+        let session = DraftSession()
+        session.text = "shared"
+        session.setNetwork(.x, enabled: true)
+        session.overrides[.x] = NetworkOverride(text: "x only", mediaIds: nil)
+        #expect(!session.showsDestinationOverrides)
+        #expect(session.resolvedContent(for: .x).text == "shared")
+
+        session.setNetwork(.bluesky, enabled: true)
+        session.overrides[.x] = NetworkOverride(text: "x only", mediaIds: nil)
+        #expect(session.showsDestinationOverrides)
+        #expect(session.resolvedContent(for: .x).text == "x only")
+        #expect(session.resolvedContent(for: .bluesky).text == "shared")
+
+        session.setNetwork(.bluesky, enabled: false)
+        #expect(!session.showsDestinationOverrides)
+        #expect(session.overrides.isEmpty)
+        #expect(session.resolvedContent(for: .x).text == "shared")
+    }
+
+    @Test func draftSessionDropsOverridesWhenOpeningSingleDestinationDraft() {
+        let draft = Draft(
+            id: "d1",
+            text: "shared",
+            mediaIds: [],
+            networks: [.x],
+            overrides: [.x: NetworkOverride(text: "x only", mediaIds: nil)],
+            createdAt: "",
+            updatedAt: ""
+        )
+        let session = DraftSession(draft: draft, media: [])
+        #expect(!session.showsDestinationOverrides)
+        #expect(session.overrides.isEmpty)
+        #expect(session.resolvedContent(for: .x).text == "shared")
+    }
+
     @Test func sidebarHasComposeAndHistory() {
         #expect(SidebarItem.allCases.map(\.rawValue) == ["compose", "history"])
     }

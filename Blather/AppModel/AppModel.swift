@@ -72,9 +72,13 @@ final class AppModel {
     }
 
     func newDraft() {
-        session = DraftSession()
+        resetComposer()
         selectedSidebar = .compose
         statusMessage = nil
+    }
+
+    func resetComposer() {
+        session = DraftSession()
     }
 
     func saveDraft() {
@@ -120,9 +124,13 @@ final class AppModel {
                 let attempts = try await PublishOrchestrator.publishDraft(id: id, database: database) { attempt in
                     progress.update(attempt)
                 }
-                session.lastAttempts = attempts
                 reload()
                 let failed = attempts.filter { $0.status == .failed }.count
+                if failed == 0 {
+                    resetComposer()
+                } else {
+                    session.lastAttempts = attempts
+                }
                 statusMessage = failed == 0
                     ? "Published everywhere"
                     : "\(attempts.count - failed) succeeded, \(failed) failed (see History to retry)"
@@ -411,7 +419,7 @@ final class AppModel {
         if let id = session.draftId {
             try? database.drafts.remove(id)
         }
-        session = DraftSession()
+        resetComposer()
         statusMessage = "Discarded"
         confirmDiscard = false
         reload()
@@ -425,11 +433,12 @@ final class AppModel {
     }
 
     private func sessionSnapshot() -> (text: String, mediaIds: [String], networks: [Network], overrides: [Network: NetworkOverride]) {
-        (
+        let networks = Network.allCases.filter { session.networks.contains($0) }
+        return (
             session.text,
             session.media.map(\.id),
-            Network.allCases.filter { session.networks.contains($0) },
-            session.overrides
+            networks,
+            session.showsDestinationOverrides ? session.overrides : [:]
         )
     }
 }
@@ -450,11 +459,25 @@ final class DraftSession {
         text = draft.text
         self.media = media
         networks = Set(draft.networks)
-        overrides = draft.overrides
+        overrides = networks.count > 1 ? draft.overrides : [:]
+    }
+
+    var showsDestinationOverrides: Bool { networks.count > 1 }
+
+    func setNetwork(_ network: Network, enabled: Bool) {
+        if enabled {
+            networks.insert(network)
+            return
+        }
+        networks.remove(network)
+        overrides[network] = nil
+        if !showsDestinationOverrides {
+            overrides.removeAll()
+        }
     }
 
     func resolvedContent(for network: Network) -> ResolvedContent {
-        let override = overrides[network]
+        let override = showsDestinationOverrides ? overrides[network] : nil
         let ids = override?.mediaIds ?? media.map(\.id)
         let resolvedMedia = ids.compactMap { id in media.first { $0.id == id } }
         return ResolvedContent(text: override?.text ?? text, media: resolvedMedia)
