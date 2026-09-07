@@ -34,6 +34,7 @@ struct AccountsSettingsPane: View {
 
 private struct AccountSection: View {
     @Environment(AppModel.self) private var appModel
+    @State private var navigation = SettingsNavigation.shared
     let network: Network
     @State private var clientId = ""
     @State private var clientSecret = ""
@@ -109,11 +110,16 @@ private struct AccountSection: View {
             Text("This deletes the stored credentials. Drafts and history are kept.")
         }
         .onAppear {
-            if !hasInitializedExpansion {
+            if navigation.focusedNetwork != nil {
+                applyFocusedNetwork(animated: false)
+            } else if !hasInitializedExpansion {
                 isExpanded = connection.state != .connected
-                hasInitializedExpansion = true
             }
+            hasInitializedExpansion = true
             applyStoredSettings(connection)
+        }
+        .onChange(of: navigation.focusGeneration) { _, _ in
+            applyFocusedNetwork(animated: true)
         }
         .onChange(of: settingsIdentity) { _, _ in
             applyStoredSettings(appModel.connection(for: network))
@@ -162,6 +168,16 @@ private struct AccountSection: View {
 
     private func toggleExpanded() {
         withAnimation(.snappy) { isExpanded.toggle() }
+    }
+
+    private func applyFocusedNetwork(animated: Bool) {
+        guard let focused = navigation.focusedNetwork else { return }
+        let shouldExpand = network == focused
+        if animated {
+            withAnimation(.snappy) { isExpanded = shouldExpand }
+        } else {
+            isExpanded = shouldExpand
+        }
     }
 
     private var capabilityHelp: String {

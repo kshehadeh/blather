@@ -26,4 +26,21 @@ struct SmokeTests {
     @Test func sidebarHasComposeAndHistory() {
         #expect(SidebarItem.allCases.map(\.rawValue) == ["compose", "history"])
     }
+
+    @Test @MainActor func focusingAccountBumpsGeneration() {
+        let nav = SettingsNavigation.shared
+        nav.clearAccountFocus()
+        let start = nav.focusGeneration
+        nav.focusAccount(.threads)
+        #expect(nav.focusedNetwork == .threads)
+        #expect(nav.focusGeneration == start + 1)
+        nav.focusAccount(.instagram)
+        #expect(nav.focusedNetwork == .instagram)
+        #expect(nav.focusGeneration == start + 2)
+        nav.focusAccount(.instagram)
+        #expect(nav.focusGeneration == start + 3)
+        nav.clearAccountFocus()
+        #expect(nav.focusedNetwork == nil)
+        #expect(nav.focusGeneration == start + 3)
+    }
 }

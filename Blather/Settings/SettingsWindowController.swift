@@ -5,9 +5,12 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private static var shared: SettingsWindowController?
 
-    static func show(tab: SettingsTab? = nil) {
+    static func show(tab: SettingsTab? = nil, network: Network? = nil) {
         if let tab {
             SettingsNavigation.shared.selectedTab = tab
+        }
+        if let network {
+            SettingsNavigation.shared.focusAccount(network)
         }
 
         if shared == nil {
@@ -66,6 +69,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        SettingsNavigation.shared.clearAccountFocus()
         Self.shared = nil
     }
 }
