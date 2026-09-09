@@ -14,12 +14,7 @@ struct ConnectionStatusToolbar: View {
                     )
                 } label: {
                     Label {
-                        Text(connection.network.title)
-                        if let label = connection.accountLabel {
-                            Text(label)
-                        } else {
-                            Text(connection.state.rawValue.capitalized)
-                        }
+                        Text(itemTitle(for: connection))
                     } icon: {
                         NetworkIcon(network: connection.network)
                     }
@@ -37,6 +32,11 @@ struct ConnectionStatusToolbar: View {
             }
         }
         .help("Connected accounts")
+    }
+
+    private func itemTitle(for connection: ConnectionInfo) -> String {
+        let detail = connection.accountLabel ?? connection.state.rawValue.capitalized
+        return "\(connection.network.title) — \(detail)"
     }
 
     private var toolbarTitle: String {
