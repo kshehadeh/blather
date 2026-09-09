@@ -73,6 +73,13 @@ enum JSONValue {
 
     static func message(from body: Any?, fallback: String) -> String {
         if let object = body as? [String: Any] {
+            // OAuth 2 error responses (RFC 6749): {"error": "invalid_request", "error_description": "..."}
+            if let code = object["error"] as? String, !code.isEmpty {
+                if let description = object["error_description"] as? String, !description.isEmpty {
+                    return Redaction.redact("\(code): \(description)")
+                }
+                return Redaction.redact(code)
+            }
             let nested = object["error"] as? [String: Any]
             let firstError = (object["errors"] as? [[String: Any]])?.first
             let candidates: [Any?] = [
@@ -80,7 +87,6 @@ enum JSONValue {
                 object["detail"],
                 object["title"],
                 object["message"],
-                object["error"] as? String,
                 firstError?["message"],
             ]
             for candidate in candidates {

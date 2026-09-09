@@ -18,17 +18,31 @@ struct XAdapter: ProviderAdapter {
         guard let clientId = tokens.meta?["clientId"] else {
             throw ProviderError(network: .x, "x: missing client id for token refresh")
         }
-        let body = try await ProviderHTTP.fetchJSON(
-            network: .x,
-            url: api.appendingPathComponent("2/oauth2/token"),
-            method: "POST",
-            headers: ["Content-Type": "application/x-www-form-urlencoded"],
-            body: ProviderHTTP.form([
-                "grant_type": "refresh_token",
-                "refresh_token": refresh,
-                "client_id": clientId,
-            ])
-        )
+        let body: Any?
+        do {
+            body = try await ProviderHTTP.fetchJSON(
+                network: .x,
+                url: api.appendingPathComponent("2/oauth2/token"),
+                method: "POST",
+                headers: ["Content-Type": "application/x-www-form-urlencoded"],
+                body: ProviderHTTP.form([
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh,
+                    "client_id": clientId,
+                ])
+            )
+        } catch let error as ProviderError {
+            // A rejected refresh token cannot be fixed in place; the account
+            // must be reconnected to mint a fresh session.
+            if let status = error.status, (400..<500).contains(status) {
+                throw ProviderError(
+                    network: .x,
+                    "x: session refresh failed (\(error.message)). Reconnect X to publish again.",
+                    status: status
+                )
+            }
+            throw error
+        }
         var next = tokens
         next.accessToken = JSONValue.string(body, "access_token") ?? tokens.accessToken
         next.refreshToken = JSONValue.string(body, "refresh_token") ?? tokens.refreshToken

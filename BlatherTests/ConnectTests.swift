@@ -363,6 +363,56 @@ struct ConnectTests {
         #expect(JSONValue.message(from: body, fallback: "x") == "nope")
     }
 
+    @Test func jsonErrorMessageIncludesOAuthErrorDescription() {
+        let body: [String: Any] = [
+            "error": "invalid_request",
+            "error_description": "Value passed for the token parameter was invalid.",
+        ]
+        #expect(
+            JSONValue.message(from: body, fallback: "x")
+                == "invalid_request: Value passed for the token parameter was invalid."
+        )
+    }
+
+    @Test func jsonErrorMessageFallsBackToOAuthErrorCodeAlone() {
+        let body: [String: Any] = ["error": "invalid_grant"]
+        #expect(JSONValue.message(from: body, fallback: "x") == "invalid_grant")
+    }
+
+    @Test func xRefreshFailureSuggestsReconnecting() async throws {
+        Keychain.store = MemoryKeychainStore()
+        let db = try AppDatabase.inMemory()
+        let account = try ConnectionStore.storeOAuth(
+            network: .x,
+            tokens: OAuthTokens(
+                accessToken: "expired",
+                refreshToken: "stale",
+                expiresAt: 0,
+                meta: ["clientId": "client-one"]
+            ),
+            providerAccountId: "one",
+            accountLabel: "@one",
+            database: db
+        )
+        let client = MockHTTPClient([
+            .json(
+                ["error": "invalid_request", "error_description": "Value passed for the token parameter was invalid."],
+                status: 400
+            ),
+        ])
+        let previousHTTP = ProviderHTTP.client
+        ProviderHTTP.client = client
+        defer { ProviderHTTP.client = previousHTTP }
+
+        do {
+            try await XAdapter(accountId: account.id, database: db).refreshIfNeeded()
+            Issue.record("expected refresh failure")
+        } catch let error as ProviderError {
+            #expect(error.message.contains("Reconnect X"))
+            #expect(error.message.contains("invalid_request: Value passed for the token parameter was invalid."))
+        }
+    }
+
     @Test func fakeR2StagesURL() async throws {
         let db = try AppDatabase.inMemory()
         let media = try db.media.create(kind: .image, mimeType: "image/png", name: "a.png", size: 10, path: "a.png")
