@@ -18,7 +18,7 @@ packages:
 
 settings:
   base:
-    MARKETING_VERSION: "0.5.0"
+    MARKETING_VERSION: "0.5.1"
     CURRENT_PROJECT_VERSION: "1"
     MACOSX_DEPLOYMENT_TARGET: "15.0"
     GENERATE_INFOPLIST_FILE: YES
@@ -69,7 +69,7 @@ targets:
       properties:
         CFBundleDisplayName: Blather
         CFBundleName: Blather
-        CFBundleShortVersionString: "0.5.0"
+        CFBundleShortVersionString: "0.5.1"
         CFBundleVersion: "1"
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: "15.0"
