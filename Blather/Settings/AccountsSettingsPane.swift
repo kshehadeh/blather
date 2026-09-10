@@ -184,7 +184,7 @@ private struct AccountEditor: View {
         }
         .padding(.vertical, 4)
         .sheet(isPresented: $showingHelp) {
-            MetaCredentialsHelp(network: network)
+            AccountSetupHelp(network: network)
         }
         .confirmationDialog(removeTitle, isPresented: $confirmRemove, titleVisibility: .visible) {
             Button("Remove Account", role: .destructive) {
@@ -244,11 +244,12 @@ private struct AccountEditor: View {
                 hasStoredSecret: hasSecret,
                 guidance: AccountFieldGuidance.metaAppSecret(for: network)
             )
-            Button("Where do I find the App ID and App Secret?") {
-                showingHelp = true
-            }
-            .buttonStyle(.link)
         }
+        Button(setupHelpButtonTitle) {
+            showingHelp = true
+        }
+        .buttonStyle(.link)
+        .accessibilityIdentifier("account-help-\(network.rawValue)")
     }
 
     private func guidedTextField(
@@ -322,6 +323,17 @@ private struct AccountEditor: View {
 
     private var removeTitle: String {
         "Remove \(account?.accountLabel ?? "this \(network.title) account")?"
+    }
+
+    private var setupHelpButtonTitle: String {
+        switch network {
+        case .x:
+            "Where do I find the Client ID?"
+        case .bluesky:
+            "Where do I find my handle and app password?"
+        case .threads, .instagram:
+            "Where do I find the App ID and App Secret?"
+        }
     }
 
     private func save(forceReconnect: Bool = false) {
@@ -452,42 +464,88 @@ private struct ConnectionStateBadge: View {
     }
 }
 
-private struct MetaCredentialsHelp: View {
+struct AccountSetupHelpContent: Equatable {
+    var title: String
+    var intro: String
+    var steps: [String]
+    var linkTitle: String
+    var linkURL: URL
+
+    static func forNetwork(_ network: Network) -> AccountSetupHelpContent {
+        let callbackURL = "\(OAuthCallbackServer.origin)/api/connect/\(network.rawValue)/callback"
+        switch network {
+        case .x:
+            return AccountSetupHelpContent(
+                title: "Find your X Client ID",
+                intro: "This value is in the X Developer Portal, not your X account settings.",
+                steps: [
+                    "Go to the X Developer Portal, create or select a project, then open the app you want Blather to use.",
+                    "Open User authentication settings. Enable OAuth 2.0, set App permissions to Read and write, and choose a public or native app type.",
+                    "Add this exact Callback URI / Redirect URL: \(callbackURL)",
+                    "Open Keys and tokens, then copy the OAuth 2.0 Client ID. Do not use the API Key, App ID, Client Secret, or bearer token.",
+                ],
+                linkTitle: "Open X Developer Portal",
+                linkURL: URL(string: "https://developer.x.com/")!
+            )
+        case .bluesky:
+            return AccountSetupHelpContent(
+                title: "Find your Bluesky credentials",
+                intro: "Bluesky does not need a developer app. You need your handle and a dedicated app password.",
+                steps: [
+                    "Copy your handle from your Bluesky profile without the leading @, for example alice.bsky.social. Do not enter an email address.",
+                    "In Bluesky, open Settings, Privacy and security, then App passwords.",
+                    "Create an app password named something like Blather, then copy the generated password. Do not use your normal account password.",
+                    "Paste the handle and app password here. Leave PDS as https://bsky.social unless your host gave you a custom PDS URL.",
+                ],
+                linkTitle: "Open Bluesky app passwords",
+                linkURL: URL(string: "https://bsky.app/settings/app-passwords")!
+            )
+        case .threads, .instagram:
+            let appIdSource: String
+            let credentialNames: String
+            if network == .instagram {
+                appIdSource = "In the left navigation, open the Instagram product, then API setup with Instagram login."
+                credentialNames = "Instagram App ID and Instagram App Secret"
+            } else {
+                appIdSource = "In the left navigation, open App settings, then Basic."
+                credentialNames = "App ID and App Secret"
+            }
+            return AccountSetupHelpContent(
+                title: "Find your \(network.title) app credentials",
+                intro: "These values are in the Meta for Developers console, not your \(network.title) account settings.",
+                steps: [
+                    "Go to Meta for Developers, My Apps, then select the app configured for \(network.title).",
+                    appIdSource,
+                    "Copy \(credentialNames). For the secret, select Show, then copy the revealed value.",
+                    "Paste both values here. Also ensure this OAuth redirect URI is configured: \(callbackURL)",
+                ],
+                linkTitle: "Open Meta for Developers",
+                linkURL: URL(string: "https://developers.facebook.com/apps/")!
+            )
+        }
+    }
+}
+
+private struct AccountSetupHelp: View {
     let network: Network
     @Environment(\.dismiss) private var dismiss
 
-    private var callbackURL: String {
-        "\(OAuthCallbackServer.origin)/api/connect/\(network.rawValue)/callback"
-    }
-
-    private var appIdSource: String {
-        switch network {
-        case .threads:
-            "In the left navigation, open App settings, then Basic."
-        case .instagram:
-            "In the left navigation, open the Instagram product, then API setup with Instagram login."
-        case .x, .bluesky:
-            ""
-        }
-    }
-
-    private var credentialNames: String {
-        network == .instagram ? "Instagram App ID and Instagram App Secret" : "App ID and App Secret"
+    private var content: AccountSetupHelpContent {
+        AccountSetupHelpContent.forNetwork(network)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Find your \(network.title) app credentials")
+            Text(content.title)
                 .font(.title2.bold())
-            Text("These values are in the Meta for Developers console, not your \(network.title) account settings.")
+            Text(content.intro)
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 10) {
-                labeled(1, "Go to Meta for Developers, My Apps, then select the app configured for \(network.title).")
-                labeled(2, appIdSource)
-                labeled(3, "Copy \(credentialNames). For the secret, select Show, then copy the revealed value.")
-                labeled(4, "Paste both values here. Also ensure this OAuth redirect URI is configured: \(callbackURL)")
+                ForEach(Array(content.steps.enumerated()), id: \.offset) { index, step in
+                    labeled(index + 1, step)
+                }
             }
-            Link("Open Meta for Developers", destination: URL(string: "https://developers.facebook.com/apps/")!)
+            Link(content.linkTitle, destination: content.linkURL)
             HStack {
                 Spacer()
                 Button("Close") { dismiss() }

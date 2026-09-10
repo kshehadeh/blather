@@ -151,4 +151,30 @@ struct SmokeTests {
         #expect(AccountFieldGuidance.blueskyHandle.help.contains("alice@example.com"))
         #expect(AccountFieldGuidance.blueskyAppPassword.help.contains("normal account password"))
     }
+
+    @Test func accountSetupHelpCoversEveryNetwork() {
+        for network in Network.allCases {
+            let content = AccountSetupHelpContent.forNetwork(network)
+            #expect(!content.title.isEmpty)
+            #expect(!content.intro.isEmpty)
+            #expect(content.steps.count == 4)
+            #expect(content.steps.allSatisfy { !$0.isEmpty })
+            #expect(!content.linkTitle.isEmpty)
+        }
+
+        let x = AccountSetupHelpContent.forNetwork(.x)
+        #expect(x.title.contains("Client ID"))
+        #expect(x.steps.contains { $0.contains("/api/connect/x/callback") })
+        #expect(x.steps.contains { $0.contains("OAuth 2.0 Client ID") })
+        #expect(x.linkURL.host == "developer.x.com")
+
+        let bluesky = AccountSetupHelpContent.forNetwork(.bluesky)
+        #expect(bluesky.steps.contains { $0.contains("App passwords") })
+        #expect(bluesky.steps.contains { $0.contains("normal account password") })
+        #expect(bluesky.linkURL.absoluteString.contains("app-passwords"))
+
+        let threads = AccountSetupHelpContent.forNetwork(.threads)
+        #expect(threads.steps.contains { $0.contains("/api/connect/threads/callback") })
+        #expect(threads.linkURL.host == "developers.facebook.com")
+    }
 }
