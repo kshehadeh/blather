@@ -1,5 +1,13 @@
 import Foundation
 
+enum LinkedInLimits {
+    static let videoMIMEType = "video/mp4"
+    static let videoMinBytes = 75 * 1024
+    static let videoMaxBytes = 500 * 1_000_000
+    static let videoMinDurationSeconds: Double = 3
+    static let imageMaxPixels = 36_152_320
+}
+
 struct ProviderError: Error, LocalizedError {
     var network: Network
     var message: String
@@ -74,6 +82,41 @@ enum ContentValidation {
                 if ratio < 1.0 / 20.0 || ratio > 20 {
                     throw ProviderError(network: network, "\(caps.network.rawValue): image \(item.name) has an unsupported aspect ratio")
                 }
+            }
+        }
+
+        if network == .linkedin {
+            try validateLinkedIn(content: content, images: images, videos: videos)
+        }
+    }
+
+    private static func validateLinkedIn(
+        content: ResolvedContent,
+        images: [MediaItem],
+        videos: [MediaItem]
+    ) throws {
+        for image in images {
+            if let width = image.width, let height = image.height,
+               width * height > LinkedInLimits.imageMaxPixels
+            {
+                throw ProviderError(
+                    network: .linkedin,
+                    "linkedin: image \(image.name) exceeds LinkedIn's \(LinkedInLimits.imageMaxPixels)-pixel limit"
+                )
+            }
+        }
+        for video in videos {
+            if video.mimeType != LinkedInLimits.videoMIMEType {
+                throw ProviderError(network: .linkedin, "linkedin: video must be MP4 to publish on LinkedIn")
+            }
+            if video.size < LinkedInLimits.videoMinBytes {
+                throw ProviderError(network: .linkedin, "linkedin: video must be at least 75KB to publish on LinkedIn")
+            }
+            if video.size > LinkedInLimits.videoMaxBytes {
+                throw ProviderError(network: .linkedin, "linkedin: video exceeds the 500MB LinkedIn limit")
+            }
+            if let duration = video.durationSeconds, duration < LinkedInLimits.videoMinDurationSeconds {
+                throw ProviderError(network: .linkedin, "linkedin: video must be at least \(Int(LinkedInLimits.videoMinDurationSeconds))s to publish on LinkedIn")
             }
         }
     }

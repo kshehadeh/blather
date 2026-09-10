@@ -145,6 +145,8 @@ struct SmokeTests {
             AccountFieldGuidance.metaAppSecret(for: .threads),
             AccountFieldGuidance.metaAppId(for: .instagram),
             AccountFieldGuidance.metaAppSecret(for: .instagram),
+            AccountFieldGuidance.linkedinClientId,
+            AccountFieldGuidance.linkedinClientSecret,
         ]
         #expect(guidance.allSatisfy { !$0.example.isEmpty && !$0.help.isEmpty })
         #expect(AccountFieldGuidance.blueskyHandle.example.contains("alice.bsky.social"))
@@ -176,5 +178,10 @@ struct SmokeTests {
         let threads = AccountSetupHelpContent.forNetwork(.threads)
         #expect(threads.steps.contains { $0.contains("/api/connect/threads/callback") })
         #expect(threads.linkURL.host == "developers.facebook.com")
+
+        let linkedin = AccountSetupHelpContent.forNetwork(.linkedin)
+        #expect(linkedin.steps.contains { $0.contains("/api/connect/linkedin/callback") })
+        #expect(linkedin.steps.contains { $0.contains("Share on LinkedIn") })
+        #expect(linkedin.linkURL.host == "www.linkedin.com")
     }
 }

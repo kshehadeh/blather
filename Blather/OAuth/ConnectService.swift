@@ -62,6 +62,35 @@ enum ConnectService {
         )
     }
 
+    static func connectLinkedIn(
+        clientId: String,
+        clientSecret: String,
+        accountId: String? = nil,
+        database: AppDatabase
+    ) async throws {
+        let state = PKCE.state()
+        try database.oauthStates.create(provider: "linkedin", state: state, verifier: "pkce-not-used")
+        try ConnectionStore.stashPending(
+            state: state,
+            config: pendingConfig(
+                ["clientId": clientId, "clientSecret": clientSecret],
+                accountId: accountId
+            )
+        )
+        let redirect = "\(OAuthCallbackServer.origin)/api/connect/linkedin/callback"
+        var url = URLComponents(string: "https://www.linkedin.com/oauth/v2/authorization")!
+        url.queryItems = [
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "client_id", value: clientId),
+            URLQueryItem(name: "redirect_uri", value: redirect),
+            URLQueryItem(name: "scope", value: "openid profile w_member_social"),
+            URLQueryItem(name: "state", value: state),
+        ]
+        try await runBrowserFlow(authorizeURL: url.url!, title: "LinkedIn", database: database) { callback in
+            try await completeLinkedIn(url: callback, database: database)
+        }
+    }
+
     static func connectBluesky(
         pds: String,
         handle: String,
@@ -358,6 +387,64 @@ enum ConnectService {
             providerAccountId: igUserId,
             accountLabel: username.map { "@\($0)" },
             meta: ["igUserId": igUserId, "accountType": accountType],
+            expectedAccountId: config["accountId"],
+            database: database
+        )
+    }
+
+    private static func completeLinkedIn(url: URL, database: AppDatabase) async throws {
+        let query = queryItems(url)
+        if let error = query["error"] {
+            let description = query["error_description"].map { " (\($0))" } ?? ""
+            throw OAuthServerError.denied("linkedin: authorization denied (\(error))\(description)")
+        }
+        guard let code = query["code"], let state = query["state"] else { throw OAuthServerError.missingCode }
+        _ = try database.oauthStates.consume(provider: "linkedin", state: state)
+        guard let config = ConnectionStore.popPending(state: state),
+              let clientId = config["clientId"],
+              let clientSecret = config["clientSecret"]
+        else { throw OAuthServerError.missingConfig }
+        let redirect = "\(OAuthCallbackServer.origin)/api/connect/linkedin/callback"
+        let tokenRes = try await ProviderHTTP.fetchJSON(
+            network: .linkedin,
+            url: URL(string: "https://www.linkedin.com/oauth/v2/accessToken")!,
+            method: "POST",
+            headers: ["Content-Type": "application/x-www-form-urlencoded"],
+            body: ProviderHTTP.form([
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect,
+                "client_id": clientId,
+                "client_secret": clientSecret,
+            ])
+        )
+        let access = JSONValue.string(tokenRes, "access_token") ?? ""
+        guard !access.isEmpty else {
+            throw ProviderError(network: .linkedin, "linkedin: token response did not include an access token")
+        }
+        // Self-serve tokens last 60 days and cannot be refreshed automatically.
+        let expires = Double(JSONValue.string(tokenRes, "expires_in") ?? "5184000") ?? 5_184_000
+        let me = try await ProviderHTTP.fetchJSON(
+            network: .linkedin,
+            url: URL(string: "https://api.linkedin.com/v2/userinfo")!,
+            headers: ["Authorization": "Bearer \(access)"]
+        )
+        let sub = JSONValue.string(me, "sub") ?? ""
+        guard !sub.isEmpty else {
+            throw ProviderError(network: .linkedin, "linkedin: account response did not include a member id")
+        }
+        let name = JSONValue.string(me, "name")
+        try ConnectionStore.storeOAuth(
+            network: .linkedin,
+            tokens: OAuthTokens(
+                accessToken: access,
+                refreshToken: nil,
+                expiresAt: Date().timeIntervalSince1970 * 1000 + expires * 1000,
+                meta: ["clientId": clientId, "clientSecret": clientSecret, "userId": sub]
+            ),
+            providerAccountId: sub,
+            accountLabel: name ?? "LinkedIn member",
+            meta: ["userId": sub],
             expectedAccountId: config["accountId"],
             database: database
         )

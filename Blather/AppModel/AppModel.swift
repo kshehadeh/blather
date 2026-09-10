@@ -303,6 +303,20 @@ final class AppModel {
         }
     }
 
+    func connectLinkedIn(clientId: String, clientSecret: String, accountId: String? = nil) {
+        let database = database
+        Task {
+            await runConnect {
+                try await ConnectService.connectLinkedIn(
+                    clientId: clientId,
+                    clientSecret: clientSecret,
+                    accountId: accountId,
+                    database: database
+                )
+            }
+        }
+    }
+
     func disconnect(accountId: String) {
         do {
             let account = connection(accountId: accountId)
@@ -357,6 +371,8 @@ final class AppModel {
             connectThreads(clientId: clientId, clientSecret: clientSecret, accountId: accountId)
         case .reconnectInstagram(let clientId, let clientSecret):
             connectInstagram(clientId: clientId, clientSecret: clientSecret, accountId: accountId)
+        case .reconnectLinkedIn(let clientId, let clientSecret):
+            connectLinkedIn(clientId: clientId, clientSecret: clientSecret, accountId: accountId)
         }
     }
 

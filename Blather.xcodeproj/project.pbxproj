@@ -29,6 +29,7 @@
 		56C1CB685C5F0EE38B712BE9 /* PublishProgressSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171C863A60CF6BBF69FFFE00 /* PublishProgressSheet.swift */; };
 		5FE92E53A9630237F519D772 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1827DA37EA5DEB36C9218E98 /* ComposerView.swift */; };
 		63A90D2745C6F23AAA2875E1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 827F6B61C5ABD07393423050 /* AppDelegate.swift */; };
+		6A0451F1707F08267014F2FA /* LinkedInTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F3341C530B97CC93EB6044 /* LinkedInTests.swift */; };
 		6F4DE6A11EED6F4AC92AC899 /* Repositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DD2ABAC31D08B13E50D0946 /* Repositories.swift */; };
 		6FC71BDF8DBA4C426A656EDD /* TLSIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B7D6E319D7BBF3AB67005B5 /* TLSIdentity.swift */; };
 		72CB7562D87E1222C0A6C213 /* MainSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD563F2018C809584F699031 /* MainSplitView.swift */; };
@@ -46,6 +47,7 @@
 		AAB8A322CC4BF761A3A6037D /* HTTPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F559D0609D751E35A58B91 /* HTTPClient.swift */; };
 		B34DC04E4528D596A7F70223 /* MediaStagingSettingsPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6BB4B865203B266C509778F /* MediaStagingSettingsPane.swift */; };
 		B4BCE16DDDC2270A236699F6 /* GraphPermalink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861C7F035F82B9077140F13E /* GraphPermalink.swift */; };
+		B57AFA2F6733EB15E3FCE0DD /* LinkedInAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F6296804BB03B999B20281 /* LinkedInAdapter.swift */; };
 		B8E6847A274CEFFE90DBE83E /* SmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CB3312CD3852105D439EE3 /* SmokeTests.swift */; };
 		BC58555F6020D0CCDF4A6E8E /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F857D6762B40E7D7B68B674 /* SettingsWindowController.swift */; };
 		C144E42F17189779843545A4 /* Redaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60DF60A78384B9B25714588C /* Redaction.swift */; };
@@ -95,6 +97,7 @@
 		12AB8D330C3B8645A99F3CDD /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
 		171C863A60CF6BBF69FFFE00 /* PublishProgressSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublishProgressSheet.swift; sourceTree = "<group>"; };
 		1827DA37EA5DEB36C9218E98 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
+		18F3341C530B97CC93EB6044 /* LinkedInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkedInTests.swift; sourceTree = "<group>"; };
 		1D33874353252324AD9BB45B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1EA92330120635C0723D4D2D /* BlatherTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlatherTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2375BFD0259ED0893E0832EF /* StoredSecretFieldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoredSecretFieldTests.swift; sourceTree = "<group>"; };
@@ -139,6 +142,7 @@
 		C7FB65E0D7219C3ABE5EDACE /* CallbackServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackServer.swift; sourceTree = "<group>"; };
 		CED8369A41F6E8E17AE1486A /* TokenAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenAccess.swift; sourceTree = "<group>"; };
 		D0EEFFA704B3E64FC1654DE4 /* AboutSettingsPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsPane.swift; sourceTree = "<group>"; };
+		D3F6296804BB03B999B20281 /* LinkedInAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinkedInAdapter.swift; sourceTree = "<group>"; };
 		D4F5F693A8E95A54382CF581 /* Validation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Validation.swift; sourceTree = "<group>"; };
 		D5112B664F262EEFCBEDB2D9 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		D9A8A224D637C80A7122B528 /* BlatherUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlatherUITests.swift; sourceTree = "<group>"; };
@@ -299,6 +303,7 @@
 			isa = PBXGroup;
 			children = (
 				AFFC8B658F2EC6CC2B43E881 /* ConnectTests.swift */,
+				18F3341C530B97CC93EB6044 /* LinkedInTests.swift */,
 				6381967B3F267C243D1AFB46 /* MediaTests.swift */,
 				37D8DC8D148615D6B3416225 /* PersistenceTests.swift */,
 				E47607F4ABE061153E12D435 /* PublishTests.swift */,
@@ -352,6 +357,7 @@
 				FB7E0AA37B99BD42FD938A4D /* ConnectionStore.swift */,
 				861C7F035F82B9077140F13E /* GraphPermalink.swift */,
 				F602B0ADACAE328CF3B5C3A4 /* InstagramAdapter.swift */,
+				D3F6296804BB03B999B20281 /* LinkedInAdapter.swift */,
 				66B4ED3BD26B643ADEA4EF32 /* ProviderAdapter.swift */,
 				7A03F7F490C0B9883B4CB246 /* ThreadsAdapter.swift */,
 				CED8369A41F6E8E17AE1486A /* TokenAccess.swift */,
@@ -512,6 +518,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F27BD3597781FCB33D32650D /* ConnectTests.swift in Sources */,
+				6A0451F1707F08267014F2FA /* LinkedInTests.swift in Sources */,
 				E550CCB4ABB5BB242BB021AC /* MediaTests.swift in Sources */,
 				D08CDD9EBB82303B18202FB5 /* PersistenceTests.swift in Sources */,
 				23CF0005D1DCB7FAB285540A /* PublishTests.swift in Sources */,
@@ -549,6 +556,7 @@
 				83642B75C681A243C27586BB /* HistoryView.swift in Sources */,
 				CD12AD66E6DD13257037A278 /* InstagramAdapter.swift in Sources */,
 				7DD1FCD8B442B7E31D74E091 /* KeychainStore.swift in Sources */,
+				B57AFA2F6733EB15E3FCE0DD /* LinkedInAdapter.swift in Sources */,
 				72CB7562D87E1222C0A6C213 /* MainSplitView.swift in Sources */,
 				B34DC04E4528D596A7F70223 /* MediaStagingSettingsPane.swift in Sources */,
 				ECAE1C4B98D5F7182D6FA736 /* MediaStore.swift in Sources */,

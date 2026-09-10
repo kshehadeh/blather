@@ -5,6 +5,7 @@ enum Network: String, CaseIterable, Identifiable, Codable, Hashable, Sendable {
     case bluesky
     case threads
     case instagram
+    case linkedin
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum Network: String, CaseIterable, Identifiable, Codable, Hashable, Sendable {
         case .bluesky: "Bluesky"
         case .threads: "Threads"
         case .instagram: "Instagram"
+        case .linkedin: "LinkedIn"
         }
     }
 
@@ -23,12 +25,13 @@ enum Network: String, CaseIterable, Identifiable, Codable, Hashable, Sendable {
         case .bluesky: "NetworkBluesky"
         case .threads: "NetworkThreads"
         case .instagram: "NetworkInstagram"
+        case .linkedin: "NetworkLinkedIn"
         }
     }
 
     func providerAccountId(in meta: [String: String]) -> String? {
         switch self {
-        case .x, .threads: meta["userId"]
+        case .x, .threads, .linkedin: meta["userId"]
         case .instagram: meta["igUserId"]
         case .bluesky: meta["did"]
         }

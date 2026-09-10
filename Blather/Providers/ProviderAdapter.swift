@@ -58,6 +58,7 @@ enum AdapterRegistry {
         case .bluesky: return BlueskyAdapter(accountId: accountId, database: database)
         case .threads: return ThreadsAdapter(accountId: accountId, database: database)
         case .instagram: return InstagramAdapter(accountId: accountId, database: database)
+        case .linkedin: return LinkedInAdapter(accountId: accountId, database: database)
         }
     }
 }

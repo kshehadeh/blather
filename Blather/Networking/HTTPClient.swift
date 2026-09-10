@@ -14,6 +14,18 @@ struct URLSessionHTTPClient: HTTPClient {
     }
 }
 
+struct ProviderResponse {
+    let body: Any?
+    let headers: [String: String]
+
+    /// Case-insensitive lookup, e.g. `header("x-restli-id")` or `header("ETag")`.
+    func header(_ name: String) -> String? {
+        let key = name.lowercased()
+        if let value = headers[key] { return value }
+        return headers.first { $0.key.lowercased() == key }?.value
+    }
+}
+
 enum ProviderHTTP {
     static var client: any HTTPClient = URLSessionHTTPClient()
 
@@ -24,6 +36,17 @@ enum ProviderHTTP {
         headers: [String: String] = [:],
         body: Data? = nil
     ) async throws -> Any? {
+        try await fetch(network: network, url: url, method: method, headers: headers, body: body).body
+    }
+
+    /// Same as `fetchJSON` but also returns response headers, keyed as received.
+    static func fetch(
+        network: Network,
+        url: URL,
+        method: String = "GET",
+        headers: [String: String] = [:],
+        body: Data? = nil
+    ) async throws -> ProviderResponse {
         var request = URLRequest(url: url)
         request.httpMethod = method
         for (key, value) in headers {
@@ -46,7 +69,13 @@ enum ProviderHTTP {
                 status: response.statusCode
             )
         }
-        return parsed
+        var headerMap: [String: String] = [:]
+        for (key, value) in response.allHeaderFields {
+            if let name = key as? String, let value = value as? String {
+                headerMap[name] = value
+            }
+        }
+        return ProviderResponse(body: parsed, headers: headerMap)
     }
 
     static func form(_ fields: [String: String]) -> Data {

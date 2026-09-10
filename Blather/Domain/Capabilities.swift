@@ -64,6 +64,23 @@ enum Capabilities {
                 "Personal Instagram accounts cannot be published to via the API.",
             ]
         ),
+        .linkedin: ProviderCapabilities(
+            network: .linkedin,
+            maxChars: 3000,
+            maxImages: 20,
+            maxImageBytes: nil,
+            autoOptimizeImages: false,
+            allowsVideo: true,
+            allowsMixedMedia: false,
+            allowsCarousel: true,
+            requiresMedia: false,
+            notes: [
+                "Requires a LinkedIn developer app with the Share on LinkedIn and Sign In with LinkedIn using OpenID Connect products.",
+                "Video must be MP4, at least 3 seconds, and under the 500MB LinkedIn limit.",
+                "Images must have fewer than 36,152,320 pixels; up to 20 images per post.",
+                "LinkedIn access tokens last 60 days and cannot be renewed automatically, so Blather asks you to reconnect when they expire.",
+            ]
+        ),
     ]
 
     static func capabilities(for network: Network) -> ProviderCapabilities {

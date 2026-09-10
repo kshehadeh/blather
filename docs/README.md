@@ -9,10 +9,11 @@ account that should receive the post.
 | Bluesky | Your handle and a Bluesky app password | [Set up Bluesky](bluesky.md) |
 | Threads | A Meta developer app with the Threads API | [Set up Threads](threads.md) |
 | Instagram | A professional Instagram account and a Meta developer app | [Set up Instagram](instagram.md) |
+| LinkedIn | A LinkedIn developer app with Share on LinkedIn | [Set up LinkedIn](linkedin.md) |
 
 Threads and Instagram also need [Cloudflare R2](cloudflare-r2.md) when a post contains an image
 or video. Text-only Threads posts do not need R2. Instagram always needs R2 because Instagram
-requires media.
+requires media. LinkedIn uploads media directly and never needs R2.
 
 ## Before setting up a network
 

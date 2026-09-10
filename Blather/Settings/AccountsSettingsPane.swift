@@ -244,6 +244,18 @@ private struct AccountEditor: View {
                 hasStoredSecret: hasSecret,
                 guidance: AccountFieldGuidance.metaAppSecret(for: network)
             )
+        case .linkedin:
+            guidedTextField(
+                "Client ID",
+                text: $clientId,
+                guidance: AccountFieldGuidance.linkedinClientId
+            )
+            guidedSecretField(
+                "Client Secret",
+                text: $clientSecret,
+                hasStoredSecret: hasSecret,
+                guidance: AccountFieldGuidance.linkedinClientSecret
+            )
         }
         Button(setupHelpButtonTitle) {
             showingHelp = true
@@ -308,7 +320,7 @@ private struct AccountEditor: View {
             return !trimmedClientId.isEmpty
         case .bluesky:
             return !trimmedHandle.isEmpty && (!appPassword.isEmpty || storedSettings.hasStoredSecret)
-        case .threads, .instagram:
+        case .threads, .instagram, .linkedin:
             return !trimmedClientId.isEmpty && (!clientSecret.isEmpty || storedSettings.hasStoredSecret)
         }
     }
@@ -333,6 +345,8 @@ private struct AccountEditor: View {
             "Where do I find my handle and app password?"
         case .threads, .instagram:
             "Where do I find the App ID and App Secret?"
+        case .linkedin:
+            "Where do I find the Client ID and Client Secret?"
         }
     }
 
@@ -356,7 +370,7 @@ private struct AccountEditor: View {
         appPassword = ""
         storedSettings = appModel.accountSettings(accountId: account?.id, network: network)
         switch network {
-        case .x, .threads, .instagram:
+        case .x, .threads, .instagram, .linkedin:
             clientId = storedSettings.clientId
         case .bluesky:
             pds = storedSettings.pds
@@ -389,6 +403,16 @@ struct AccountFieldGuidance: Equatable {
         help: "Create an app password in Bluesky Settings, Privacy and security, App passwords. Do not use your normal account password."
     )
 
+    static let linkedinClientId = AccountFieldGuidance(
+        example: "e.g. 77abc123de456f",
+        help: "Copy the Client ID from your LinkedIn developer app's Auth tab. Do not use an Access Token or your LinkedIn password."
+    )
+
+    static let linkedinClientSecret = AccountFieldGuidance(
+        example: "Example: the secret shown beside your Client ID",
+        help: "Reveal and copy the Client Secret from the same Auth tab. This is not an access token or your LinkedIn password."
+    )
+
     static func metaAppId(for network: Network) -> AccountFieldGuidance {
         switch network {
         case .threads:
@@ -401,7 +425,7 @@ struct AccountFieldGuidance: Equatable {
                 example: "e.g. 123456789012345",
                 help: "Copy the Instagram App ID from the Instagram product's API setup in Meta for Developers."
             )
-        case .x, .bluesky:
+        case .x, .bluesky, .linkedin:
             preconditionFailure("Meta guidance is only available for Threads and Instagram")
         }
     }
@@ -418,7 +442,7 @@ struct AccountFieldGuidance: Equatable {
                 example: "Example: the secret shown beside your Instagram App ID",
                 help: "Reveal and copy Instagram App Secret from the Instagram product setup. This is not an access token or your Instagram password."
             )
-        case .x, .bluesky:
+        case .x, .bluesky, .linkedin:
             preconditionFailure("Meta guidance is only available for Threads and Instagram")
         }
     }
@@ -521,6 +545,19 @@ struct AccountSetupHelpContent: Equatable {
                 ],
                 linkTitle: "Open Meta for Developers",
                 linkURL: URL(string: "https://developers.facebook.com/apps/")!
+            )
+        case .linkedin:
+            return AccountSetupHelpContent(
+                title: "Find your LinkedIn app credentials",
+                intro: "These values are in the LinkedIn Developers portal, not your LinkedIn account settings.",
+                steps: [
+                    "Go to LinkedIn Developers and create an app. LinkedIn requires associating a LinkedIn Page; that Page is only the app's publisher, not a posting destination.",
+                    "In the app's Products tab, add the Share on LinkedIn and Sign In with LinkedIn using OpenID Connect products.",
+                    "Open the Auth tab, then copy the Client ID and reveal and copy the Client Secret.",
+                    "Still in the Auth tab, add this exact Redirect URL: \(callbackURL), then paste both values here.",
+                ],
+                linkTitle: "Open LinkedIn Developers",
+                linkURL: URL(string: "https://www.linkedin.com/developers/apps")!
             )
         }
     }

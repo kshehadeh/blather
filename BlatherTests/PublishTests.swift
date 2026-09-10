@@ -480,17 +480,18 @@ final class MockHTTPClient: HTTPClient, @unchecked Sendable {
         var json: Any?
         var error: Error?
         var rawBody: Data? = nil
+        var headers: [String: String] = [:]
 
-        static func json(_ value: Any, status: Int = 200) -> Exchange {
-            Exchange(status: status, json: value, error: nil)
+        static func json(_ value: Any, status: Int = 200, headers: [String: String] = [:]) -> Exchange {
+            Exchange(status: status, json: value, error: nil, headers: headers)
         }
 
         static func status(_ code: Int) -> Exchange {
             Exchange(status: code, json: ["error": ["message": "http \(code)"]], error: nil)
         }
 
-        static func empty(_ status: Int = 200) -> Exchange {
-            Exchange(status: status, json: nil, error: nil, rawBody: Data())
+        static func empty(_ status: Int = 200, headers: [String: String] = [:]) -> Exchange {
+            Exchange(status: status, json: nil, error: nil, rawBody: Data(), headers: headers)
         }
 
         static func raw(_ body: Data, status: Int) -> Exchange {
@@ -530,7 +531,7 @@ final class MockHTTPClient: HTTPClient, @unchecked Sendable {
             url: request.url!,
             statusCode: exchange.status,
             httpVersion: nil,
-            headerFields: nil
+            headerFields: exchange.headers.isEmpty ? nil : exchange.headers
         )!
         return (data, response)
     }

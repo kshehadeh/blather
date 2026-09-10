@@ -9,6 +9,7 @@ enum Redaction {
             #"X-Amz-Signature=[0-9a-fA-F]+"#,
             #"X-Amz-Credential=[^&\s]+"#,
             #"appsecret_proof=[0-9a-fA-F]+"#,
+            #"(sau|ut)=[A-Za-z0-9_~+=.-]+"#,
         ]
         return raw.compactMap { try? NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
     }()

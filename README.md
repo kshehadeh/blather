@@ -1,9 +1,9 @@
 # Blather
 
-Compose once, publish to your own accounts on **X**, **Bluesky**, **Threads**, and
-**Instagram** — from a local-only native macOS app. No hosted backend, no telemetry, no
-third-party aggregation API. Your provider credentials live in macOS Keychain; everything else
-lives in a local SQLite database.
+Compose once, publish to your own accounts on **X**, **Bluesky**, **Threads**,
+**Instagram**, and **LinkedIn** — from a local-only native macOS app. No hosted backend, no
+telemetry, no third-party aggregation API. Your provider credentials live in macOS Keychain;
+everything else lives in a local SQLite database.
 
 ## Requirements
 
@@ -50,9 +50,11 @@ each network:
 - [Bluesky](docs/bluesky.md)
 - [Threads](docs/threads.md)
 - [Instagram](docs/instagram.md)
+- [LinkedIn](docs/linkedin.md)
 
 Media posts to Threads and Instagram also require the
-[Cloudflare R2 staging setup](docs/cloudflare-r2.md).
+[Cloudflare R2 staging setup](docs/cloudflare-r2.md). LinkedIn uploads media
+directly and never needs R2.
 
 ## Data locations
 
@@ -74,8 +76,8 @@ Secrets are entered through the Settings UI only.
 
 ## Security model and limitations
 
-- There is no hosted server. Outgoing HTTPS goes to X, Bluesky, Meta, and R2. Incoming HTTPS is
-  only the ephemeral OAuth callback listener on `127.0.0.1:3000`.
+- There is no hosted server. Outgoing HTTPS goes to X, Bluesky, Meta, LinkedIn, and R2.
+  Incoming HTTPS is only the ephemeral OAuth callback listener on `127.0.0.1:3000`.
 - OAuth callbacks verify single-use state parameters (CSRF) and PKCE verifiers (X).
 - Logs and stored history errors are redacted: bearer tokens, `access_token` fields,
   client secrets, and signed staging URLs never persist.
@@ -140,7 +142,7 @@ Blather/
   Media/          NSOpenPanel, drag/drop, paste, thumbnails
   Networking/     URLSession JSON client
   OAuth/          PKCE, loopback HTTPS callback, connect flows
-  Providers/      X / Bluesky / Threads / Instagram / mock adapters
+  Providers/      X / Bluesky / Threads / Instagram / LinkedIn / mock adapters
   Publish/        orchestrator and crash recovery
   R2/             SigV4 staging client
   Views/          Compose, History, inspector

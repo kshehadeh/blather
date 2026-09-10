@@ -13,6 +13,7 @@ enum AccountSavePlan: Equatable, Sendable {
     case reconnectX(clientId: String)
     case reconnectThreads(clientId: String, clientSecret: String)
     case reconnectInstagram(clientId: String, clientSecret: String)
+    case reconnectLinkedIn(clientId: String, clientSecret: String)
 }
 
 enum AccountSettings {
@@ -34,7 +35,7 @@ enum AccountSettings {
                 handle: handle,
                 hasStoredSecret: !(creds?.secret ?? "").isEmpty
             )
-        case .x, .threads, .instagram:
+        case .x, .threads, .instagram, .linkedin:
             let tokens = TokenAccess.loadTokens(accountId: accountId, database: database)
             return AccountConnectSettings(
                 clientId: tokens?.meta?["clientId"] ?? "",
@@ -88,6 +89,11 @@ enum AccountSettings {
             let secret = clientSecret.isEmpty ? (storedClientSecret ?? "") : clientSecret
             if clientId.isEmpty || secret.isEmpty { return .noOp }
             return .reconnectInstagram(clientId: clientId, clientSecret: secret)
+        case .linkedin:
+            if !forceReconnect, clientId == stored.clientId, clientSecret.isEmpty { return .noOp }
+            let secret = clientSecret.isEmpty ? (storedClientSecret ?? "") : clientSecret
+            if clientId.isEmpty || secret.isEmpty { return .noOp }
+            return .reconnectLinkedIn(clientId: clientId, clientSecret: secret)
         }
     }
 
